@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=68", "wheel", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supertonicsynth"
+dynamic = ["version"]
+description = "Supertonic-3 synthesis engine backed by OnnxVoice"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "SupertonicSynth contributors"}]
+dependencies = [
+  "numpy>=1.23",
+  "onnxvoice>=0.1.12,<0.2",
+]
+keywords = ["tts", "text-to-speech", "supertonic", "onnx", "speech", "onnxruntime"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Multimedia :: Sound/Audio :: Speech",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/buchwandler/supertonicsynth"
+Repository = "https://github.com/buchwandler/supertonicsynth"
+Issues = "https://github.com/buchwandler/supertonicsynth/issues"
+
+[project.optional-dependencies]
+cpu = ["onnxvoice[cpu]>=0.1.12,<0.2"]
+gpu = ["onnxvoice[gpu]>=0.1.12,<0.2"]
+directml = ["onnxvoice[directml]>=0.1.12,<0.2"]
+openvino = ["onnxvoice[openvino]>=0.1.12,<0.2"]
+playback = ["sounddevice>=0.5,<0.6"]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=5",
+  "ruff>=0.16,<0.17",
+  "mypy>=1.11",
+  "build>=1",
+]
+
+[project.scripts]
+supertonicsynth = "supertonicsynth.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["supertonicsynth*"]
+
+[tool.setuptools.package-data]
+supertonicsynth = ["py.typed"]
+
+[tool.setuptools_scm]
+write_to = "supertonicsynth/_version.py"
+fallback_version = "0.0.0+unknown"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+markers = [
+  "integration: tests requiring optional runtimes or external model assets",
+  "network: tests requiring network access",
+  "resource_heavy: tests requiring large model assets",
+]
+
+[tool.coverage.run]
+omit = ["supertonicsynth/_version.py"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+packages = ["supertonicsynth"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+ignore_missing_imports = true

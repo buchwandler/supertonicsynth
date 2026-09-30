@@ -1,0 +1,6 @@
+SupertonicSynth
+Copyright 2026 SupertonicSynth contributors
+
+Portions of the text frontend, style format handling, chunking behavior, and Supertonic inference contract are derived from the archived supertone-oss-archive/supertonic-py project, which is licensed under the MIT License. See licenses/SUPERTONIC-PY-MIT.txt.
+
+Supertonic-3 model assets are not distributed with this package and remain subject to their upstream OpenRAIL-M license.
