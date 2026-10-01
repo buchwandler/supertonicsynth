@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "name": "supertonicsynth-counting-1-to-10-v1",
+  "repeats": 3,
+  "seed": 1729,
+  "steps": 5,
+  "reference_lufs": -24.0,
+  "min_gain_db": -12.0,
+  "max_gain_db": 8.0,
+  "max_mad_lu": 0.75
+}

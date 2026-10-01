@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import argparse
 from pathlib import Path
+
 from .runtime import SupertonicRuntime
 from .types import SynthesisConfig
+from .voice_level import VoiceLevelConfig
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,6 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
     synth.add_argument("--steps", type=int, default=5)
     synth.add_argument("--speed", type=float, default=1.05)
     synth.add_argument("--seed", type=int)
+    synth.add_argument("--voice-level", choices=("off", "calibrated"), default="off")
+    synth.add_argument("--voice-gain-db", type=float)
+    synth.add_argument("--output-gain", type=float, default=1.0)
+    synth.add_argument("--normalize-audio", action=argparse.BooleanOptionalAction, default=None)
     voices = sub.add_parser("voices", help="list installed bundle voices")
     voices.add_argument("--model", default="supertonic-3")
     return parser
@@ -29,7 +36,17 @@ def main(argv: list[str] | None = None) -> int:
             for name in runtime.voice_names:
                 print(name)
             return 0
-        config = SynthesisConfig(steps=args.steps, speed=args.speed, seed=args.seed)
+        config = SynthesisConfig(
+            steps=args.steps,
+            speed=args.speed,
+            seed=args.seed,
+            normalize_audio=(True if args.normalize_audio is None else args.normalize_audio),
+            output_gain=args.output_gain,
+            voice_level=VoiceLevelConfig(
+                mode=args.voice_level,
+                gain_db=args.voice_gain_db,
+            ),
+        )
         result = runtime.synthesize_text(
             args.text, voice=args.voice, language=args.language, config=config
         )

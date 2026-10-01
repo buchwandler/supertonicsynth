@@ -1,4 +1,4 @@
-"""SupertonicSynth — Supertonic-3 synthesis backed by OnnxVoice."""
+"""SupertonicSynth, Supertonic-3 synthesis backed by OnnxVoice."""
 
 try:
     from ._version import __version__, __version_tuple__
@@ -16,10 +16,38 @@ from .config import (
     UNKNOWN_LANGUAGE,
 )
 from .convenience import synthesize
-from .errors import *
+from .errors import (
+    AssetCacheError,
+    AssetDownloadError,
+    AssetError,
+    BundleNotFoundError,
+    CatalogUnavailableError,
+    ClosedRuntimeError,
+    InvalidLanguageError,
+    InvalidRequestError,
+    InvalidVoiceStyleError,
+    ModelInferenceError,
+    OfflineAssetError,
+    OptionalDependencyError,
+    RuntimeCapabilityError,
+    SessionCreationError,
+    SupertonicSynthError,
+)
 from .runtime import SupertonicRuntime
 from .style import VoiceStyle, load_voice_style
 from .types import RuntimeDiagnostics, SynthesisConfig, SynthesisResult
+from .voice_level import (
+    CalibrationDataError,
+    VoiceCalibrationCatalog,
+    VoiceCalibrationKey,
+    VoiceLevelApplication,
+    VoiceLevelCalibration,
+    VoiceLevelConfig,
+    VoiceLevelMode,
+    apply_voice_level_calibration,
+    default_voice_calibration,
+    load_voice_calibration,
+)
 
 __all__ = [
     "AVAILABLE_LANGUAGES",
@@ -38,4 +66,29 @@ __all__ = [
     "__version_tuple__",
     "load_voice_style",
     "synthesize",
+    "CalibrationDataError",
+    "VoiceCalibrationCatalog",
+    "VoiceCalibrationKey",
+    "VoiceLevelApplication",
+    "VoiceLevelCalibration",
+    "VoiceLevelConfig",
+    "VoiceLevelMode",
+    "apply_voice_level_calibration",
+    "default_voice_calibration",
+    "load_voice_calibration",
+    "AssetCacheError",
+    "AssetDownloadError",
+    "AssetError",
+    "BundleNotFoundError",
+    "CatalogUnavailableError",
+    "ClosedRuntimeError",
+    "InvalidLanguageError",
+    "InvalidRequestError",
+    "InvalidVoiceStyleError",
+    "ModelInferenceError",
+    "OfflineAssetError",
+    "OptionalDependencyError",
+    "RuntimeCapabilityError",
+    "SessionCreationError",
+    "SupertonicSynthError",
 ]

@@ -1,26 +1,27 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from . import __version__
 from ._onnxvoice import (
     ResolvedSupertonicBundle,
     install_pretrained_bundle,
     open_installed_bundle,
     open_local_bundle,
 )
+from .audio import finish_audio, prepare_audio
 from .config import (
     AVAILABLE_LANGUAGES,
     DEFAULT_LANGUAGE,
     DEFAULT_MAX_CHUNK_LENGTH,
     DEFAULT_MAX_CHUNK_LENGTH_KO,
     DEFAULT_MODEL,
-    DEFAULT_SILENCE_DURATION,
-    DEFAULT_SPEED,
-    DEFAULT_STEPS,
     DEFAULT_VOICE,
     MAX_TEXT_LENGTH,
 )
@@ -35,6 +36,49 @@ from .frontend import SupertonicFrontend
 from .style import VoiceStyle, load_voice_style
 from .text_split import chunk_text
 from .types import RuntimeDiagnostics, SynthesisConfig, SynthesisResult
+from .voice_level import (
+    VoiceCalibrationKey,
+    VoiceLevelApplication,
+    VoiceLevelConfig,
+    apply_voice_level_calibration,
+)
+
+
+def _is_managed_bundle(bundle: ResolvedSupertonicBundle) -> bool:
+    installation = bundle.installation
+    return (
+        installation is not None
+        and bundle.metadata.get("managed") is not False
+        and bundle.metadata.get("external") is not True
+        and getattr(installation, "kind", None) != "external"
+    )
+
+
+def canonical_backing_ref(bundle: ResolvedSupertonicBundle) -> str | None:
+    if not _is_managed_bundle(bundle) or not bundle.bundle_id:
+        return None
+    return f"supertonic:{bundle.bundle_id}"
+
+
+def canonical_voice_ref(
+    bundle: ResolvedSupertonicBundle,
+    voice: str | VoiceStyle,
+) -> str | None:
+    backing_ref = canonical_backing_ref(bundle)
+    if not isinstance(voice, str) or backing_ref is None or voice not in bundle.style_paths:
+        return None
+    return f"{backing_ref}/{voice}"
+
+
+def _synthesis_hash(identity: Mapping[str, Any], source_text: str) -> str:
+    serialized = json.dumps(
+        identity,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(serialized + b"\0" + source_text.encode("utf-8")).hexdigest()
 
 
 class SupertonicRuntime:
@@ -45,6 +89,7 @@ class SupertonicRuntime:
         self.bundle = bundle
         self._owns_runtime = owns_runtime
         self._closed = False
+        self._last_voice_level_application: VoiceLevelApplication | None = None
         self.frontend = SupertonicFrontend(bundle.unicode_indexer_path)
         self.sample_rate = int(bundle.sample_rate or 44_100)
 
@@ -100,6 +145,10 @@ class SupertonicRuntime:
     def voice_names(self) -> tuple[str, ...]:
         return tuple(sorted(self.bundle.style_paths))
 
+    @property
+    def last_voice_level_application(self) -> VoiceLevelApplication | None:
+        return self._last_voice_level_application
+
     def get_voice_style(self, voice: str = DEFAULT_VOICE) -> VoiceStyle:
         try:
             path = self.bundle.style_paths[voice]
@@ -122,6 +171,9 @@ class SupertonicRuntime:
         max_chunk_length: int | None = None,
         silence_duration: float | None = None,
         seed: int | None = None,
+        normalize_audio: bool | None = None,
+        output_gain: float | None = None,
+        voice_level: VoiceLevelConfig | None = None,
     ) -> SynthesisResult:
         if self._closed:
             raise ClosedRuntimeError("runtime is closed")
@@ -135,13 +187,16 @@ class SupertonicRuntime:
         effective = SynthesisConfig(
             steps=base.steps if steps is None else steps,
             speed=base.speed if speed is None else speed,
-            max_chunk_length=base.max_chunk_length
-            if max_chunk_length is None
-            else max_chunk_length,
-            silence_duration=base.silence_duration
-            if silence_duration is None
-            else silence_duration,
+            max_chunk_length=(
+                base.max_chunk_length if max_chunk_length is None else max_chunk_length
+            ),
+            silence_duration=(
+                base.silence_duration if silence_duration is None else silence_duration
+            ),
             seed=base.seed if seed is None else seed,
+            normalize_audio=(base.normalize_audio if normalize_audio is None else normalize_audio),
+            output_gain=base.output_gain if output_gain is None else output_gain,
+            voice_level=base.voice_level if voice_level is None else voice_level,
         )
         style = self.get_voice_style(voice) if isinstance(voice, str) else voice
         limit = effective.max_chunk_length or (
@@ -168,7 +223,7 @@ class SupertonicRuntime:
                 if isinstance(exc, (ValueError, TypeError)):
                     raise
                 raise ModelInferenceError(str(exc)) from exc
-            audio = np.asarray(getattr(result, "audio"), dtype=np.float32).squeeze()
+            audio = np.asarray(result.audio, dtype=np.float32).squeeze()
             if audio.ndim != 1 or audio.size == 0 or not np.all(np.isfinite(audio)):
                 raise ModelInferenceError("runtime returned invalid audio")
             result_rate = int(getattr(result, "sample_rate", self.sample_rate))
@@ -182,25 +237,76 @@ class SupertonicRuntime:
                 int(round(effective.silence_duration * self.sample_rate)), dtype=np.float32
             )
             interleaved: list[np.ndarray] = []
-            for index, audio in enumerate(audio_parts):
-                interleaved.append(audio)
+            for index, part in enumerate(audio_parts):
+                interleaved.append(part)
                 if index + 1 < len(audio_parts):
                     interleaved.append(silence)
             audio_parts = interleaved
         audio = np.concatenate(audio_parts).astype(np.float32, copy=False)
+        audio = prepare_audio(audio, normalize=effective.normalize_audio)
+        backing_ref = canonical_backing_ref(self.bundle)
+        voice_ref = canonical_voice_ref(self.bundle, voice)
+        calibration_key = (
+            VoiceCalibrationKey(voice_ref, language) if voice_ref is not None else None
+        )
+        audio, application = apply_voice_level_calibration(
+            audio, effective.voice_level, calibration_key
+        )
+        audio = finish_audio(audio, output_gain=effective.output_gain)
+        self._last_voice_level_application = application
         voice_name = style.name if isinstance(voice, VoiceStyle) else voice
+        application_key = application.calibration_key
+        voice_level_metadata = {
+            "mode": application.mode,
+            "applied": application.applied,
+            "gain_db": application.gain_db,
+            "source": application.source,
+            "calibration_key": str(application_key) if application_key else None,
+            "voice_ref": application_key.voice_ref if application_key else None,
+            "language": application_key.language if application_key else language,
+            "reason": application.reason,
+            "catalog_revision": application.catalog_revision,
+        }
+        synthesis_identity = {
+            "supertonicsynth_version": __version__,
+            "voice_ref": voice_ref,
+            "backing_ref": backing_ref,
+            "source_revision": self.bundle.source_revision,
+            "language": language,
+            "steps": effective.steps,
+            "speed": effective.speed,
+            "max_chunk_length": limit,
+            "silence_duration": effective.silence_duration,
+            "seed": effective.seed,
+            "normalize_audio": effective.normalize_audio,
+            "output_gain": effective.output_gain,
+            "voice_level": {
+                "mode": application.mode,
+                "source": application.source,
+                "gain_db": application.gain_db,
+                "calibration_key": str(application_key) if application_key else None,
+                "catalog_revision": application.catalog_revision,
+            },
+        }
         return SynthesisResult(
             audio=audio,
             sample_rate=self.sample_rate,
             duration=float(audio.size / self.sample_rate),
             chunks=len(chunks),
             metadata={
-                "bundle": self.bundle.ref or self.bundle.bundle_id,
+                "bundle": backing_ref or self.bundle.ref or self.bundle.bundle_id,
                 "voice": voice_name,
+                "voice_ref": voice_ref,
+                "backing_ref": backing_ref,
                 "language": language,
                 "steps": effective.steps,
                 "speed": effective.speed,
                 "seed": effective.seed,
+                "normalize_audio": effective.normalize_audio,
+                "output_gain": effective.output_gain,
+                "voice_level": voice_level_metadata,
+                "synthesis_identity": synthesis_identity,
+                "synthesis_hash": _synthesis_hash(synthesis_identity, text),
             },
         )
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import re
 
 _COMMON_ABBREVIATIONS_PATTERN = (

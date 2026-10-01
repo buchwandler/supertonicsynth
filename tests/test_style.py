@@ -1,5 +1,7 @@
 import json
+
 import numpy as np
+
 from supertonicsynth.style import load_voice_style
 
 

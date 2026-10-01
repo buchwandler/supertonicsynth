@@ -12,7 +12,8 @@ license = {text = "Apache-2.0"}
 authors = [{name = "SupertonicSynth contributors"}]
 dependencies = [
   "numpy>=1.23",
-  "onnxvoice>=0.1.12,<0.2",
+  "audiosig>=0.1.4,<0.2",
+  "onnxvoice>=0.2.0,<0.3",
 ]
 keywords = ["tts", "text-to-speech", "supertonic", "onnx", "speech", "onnxruntime"]
 classifiers = [
@@ -56,7 +57,10 @@ where = ["."]
 include = ["supertonicsynth*"]
 
 [tool.setuptools.package-data]
-supertonicsynth = ["py.typed"]
+supertonicsynth = [
+  "py.typed",
+  "data/*.json",
+]
 
 [tool.setuptools_scm]
 write_to = "supertonicsynth/_version.py"

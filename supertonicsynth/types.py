@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import wave
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from collections.abc import Mapping
 
 import numpy as np
 
+from .audio import float_to_int16, write_wav
 from .config import MAX_SPEED, MAX_STEPS, MIN_SPEED, MIN_STEPS
+from .voice_level import VoiceLevelConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +19,9 @@ class SynthesisConfig:
     max_chunk_length: int | None = None
     silence_duration: float = 0.3
     seed: int | None = None
+    normalize_audio: bool = True
+    output_gain: float = 1.0
+    voice_level: VoiceLevelConfig = field(default_factory=VoiceLevelConfig)
 
     def __post_init__(self) -> None:
         if not MIN_STEPS <= self.steps <= MAX_STEPS:
@@ -28,6 +32,17 @@ class SynthesisConfig:
             raise ValueError("max_chunk_length must be at least 10")
         if self.silence_duration < 0:
             raise ValueError("silence_duration must be non-negative")
+        if not isinstance(self.normalize_audio, bool):
+            raise ValueError("normalize_audio must be a bool")
+        if (
+            isinstance(self.output_gain, bool)
+            or not isinstance(self.output_gain, (int, float))
+            or not np.isfinite(self.output_gain)
+            or self.output_gain < 0
+        ):
+            raise ValueError("output_gain must be a finite non-negative number")
+        if not isinstance(self.voice_level, VoiceLevelConfig):
+            raise ValueError("voice_level must be a VoiceLevelConfig")
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,17 +54,12 @@ class SynthesisResult:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def pcm16(self) -> np.ndarray:
-        audio = np.asarray(self.audio, dtype=np.float32).reshape(-1)
-        return (np.clip(audio, -1.0, 1.0) * 32767.0).astype(np.int16)
+        return float_to_int16(self.audio)
 
     def write_wav(self, path: str | Path) -> Path:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
-        with wave.open(str(target), "wb") as wav:
-            wav.setnchannels(1)
-            wav.setsampwidth(2)
-            wav.setframerate(self.sample_rate)
-            wav.writeframes(self.pcm16().tobytes())
+        write_wav(target, self.audio, self.sample_rate)
         return target
 
 

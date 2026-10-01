@@ -161,7 +161,7 @@ def open_local_bundle(
     )
     installation = getattr(runtime, "installation", None)
     resolved = (
-        installation_to_bundle_info(installation, ref=None)
+        installation_to_bundle_info(installation)
         if installation is not None
         else ResolvedSupertonicBundle(
             ref=None,
@@ -197,7 +197,7 @@ def install_pretrained_bundle(
             normalized, refresh=refresh_catalog, force=force_download, progress=progress
         ),
     )
-    return installation_to_bundle_info(installation, ref=normalized)
+    return installation_to_bundle_info(installation)
 
 
 def open_installed_bundle(
@@ -222,7 +222,7 @@ def open_installed_bundle(
     )
 
 
-def installation_to_bundle_info(installation: Any, *, ref: str | None) -> ResolvedSupertonicBundle:
+def installation_to_bundle_info(installation: Any) -> ResolvedSupertonicBundle:
     if installation is None:
         raise RuntimeCapabilityError("Supertonic installation is unavailable")
     try:
@@ -243,9 +243,13 @@ def installation_to_bundle_info(installation: Any, *, ref: str | None) -> Resolv
         ):
             styles[str(artifact.component)] = Path(artifact.path)
     raw = dict(getattr(installation, "metadata", {}) or {})
+    bundle_id = getattr(installation, "id", None)
+    backing_ref = getattr(installation, "ref", None)
+    if not backing_ref and bundle_id:
+        backing_ref = f"{getattr(installation, 'system', 'supertonic')}:{bundle_id}"
     return ResolvedSupertonicBundle(
-        ref=ref or getattr(installation, "ref", None),
-        bundle_id=getattr(installation, "id", None),
+        ref=backing_ref,
+        bundle_id=bundle_id,
         config_path=config,
         unicode_indexer_path=indexer,
         model_paths=models,

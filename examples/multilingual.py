@@ -1,10 +1,19 @@
-from supertonicsynth import SupertonicRuntime
+from supertonicsynth import SupertonicRuntime, SynthesisConfig, VoiceLevelConfig
 
 examples = [
-    ("en", "Hello from Supertonic."),
-    ("de", "Hallo von Supertonic."),
-    ("fr", "Bonjour de Supertonic."),
+    ("en", "A prepared English sentence."),
+    ("de", "Ein vorbereiteter deutscher Satz."),
+    ("fr", "Une phrase française préparée."),
 ]
+config = SynthesisConfig(voice_level=VoiceLevelConfig(mode="calibrated"))
+
 with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
-    for lang, text in examples:
-        tts.synthesize_text(text, voice="F1", language=lang).write_wav(f"example_{lang}.wav")
+    for language, text in examples:
+        result = tts.synthesize_text(
+            text,
+            voice="F1",
+            language=language,
+            config=config,
+        )
+        result.write_wav(f"example_{language}.wav")
+        print(result.metadata["voice_level"]["calibration_key"])
