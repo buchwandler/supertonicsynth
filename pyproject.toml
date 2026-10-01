@@ -47,6 +47,8 @@ dev = [
   "ruff>=0.16,<0.17",
   "mypy>=1.11",
   "build>=1",
+  "numeralform>=0.1.9,<0.2",
+  "spokenform>=0.4.5,<0.5",
 ]
 
 [project.scripts]
