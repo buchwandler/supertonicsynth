@@ -4,9 +4,37 @@ on:
     tags: ["v*"]
 permissions:
   contents: read
-  id-token: write
 jobs:
+  release-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[cpu,dev]"
+      - name: Resolve GPU extra metadata
+        run: python -m pip install --dry-run ".[gpu]"
+      - run: pytest
+      - run: ruff check .
+      - run: mypy
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[docs]"
+      - run: python docs/make.py html
+      - run: sphinx-build -W -b html docs docs/_build/html
   build:
+    needs: [release-tests, docs]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,9 +43,69 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install build
+      - run: python -m pip install --upgrade pip build twine
       - run: python -m build
+      - run: python -m twine check dist/*
+      - name: Verify release wheel
+        run: |
+          python - <<'PY'
+          from email import message_from_bytes
+          from pathlib import Path
+          import os
+          from zipfile import ZipFile
+
+          wheels = list(Path("dist").glob("supertonicsynth-*.whl"))
+          assert len(wheels) == 1, f"expected one wheel, found {wheels}"
+          with ZipFile(wheels[0]) as wheel:
+              names = set(wheel.namelist())
+              metadata_path = next(
+                  name for name in names if name.endswith(".dist-info/METADATA")
+              )
+              metadata = message_from_bytes(wheel.read(metadata_path))
+              tag = os.environ["GITHUB_REF_NAME"]
+              assert tag.startswith("v"), tag
+              expected_version = tag[1:]
+              assert metadata["Version"] == expected_version, metadata["Version"]
+              required = {
+                  "supertonicsynth/data/voice_level_calibration.json",
+                  "supertonicsynth/py.typed",
+              }
+              assert required <= names, f"missing wheel files: {required - names}"
+              licenses = {
+                  Path(name).name
+                  for name in names
+                  if ".dist-info/licenses/" in name
+              }
+              required_licenses = {"LICENSE", "NOTICE", "SUPERTONIC-PY-MIT.txt"}
+              assert required_licenses <= licenses, (
+                  f"missing license files: {required_licenses - licenses}"
+              )
+          print(f"Verified wheel version {expected_version} and release contents")
+          PY
+      - name: Install wheel in a clean environment
+        run: |
+          python -m venv .release-venv
+          wheel="$(find dist -maxdepth 1 -name 'supertonicsynth-*.whl' -print -quit)"
+          .release-venv/bin/python -m pip install "${wheel}[cpu]"
+          EXPECTED_VERSION="${GITHUB_REF_NAME#v}" .release-venv/bin/python -c \
+            'import os, supertonicsynth; assert supertonicsynth.__version__ == os.environ["EXPECTED_VERSION"]'
+          .release-venv/bin/supertonicsynth --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/*
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
       - uses: pypa/gh-action-pypi-publish@v1.14.1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
           attestations: false

@@ -44,4 +44,4 @@ Results include canonical `voice_ref` and `backing_ref`, the selected calibratio
 
 ## Dependency boundary
 
-Development uses the locally adapted OnnxVoice semantic-ref API. The project will raise its OnnxVoice lower bound only to the first published release verified to contain that API. No unreleased version is recorded in package metadata.
+SupertonicSynth requires OnnxVoice >=0.2.0,<0.3. The 0.2.x line provides the Supertonic catalog, semantic voice-ref, managed-installation, local-open, and runtime APIs used by this package.

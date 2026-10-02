@@ -37,3 +37,31 @@ def test_wav(tmp_path):
     result = SynthesisResult(np.zeros(100, dtype=np.float32), 1000, 0.1, 1)
     path = result.write_wav(tmp_path / "out.wav")
     assert path.stat().st_size > 44
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"steps": True},
+        {"steps": 1.5},
+        {"speed": True},
+        {"speed": float("nan")},
+        {"speed": float("inf")},
+        {"speed": 0.6},
+        {"speed": 2.1},
+        {"max_chunk_length": True},
+        {"max_chunk_length": 10.5},
+        {"max_chunk_length": 9},
+        {"silence_duration": True},
+        {"silence_duration": float("nan")},
+        {"silence_duration": float("inf")},
+        {"silence_duration": -0.1},
+        {"seed": True},
+        {"seed": -1},
+        {"seed": 2**32},
+        {"seed": 1.5},
+    ],
+)
+def test_synthesis_config_rejects_invalid_values(kwargs):
+    with pytest.raises(ValueError):
+        SynthesisConfig(**kwargs)

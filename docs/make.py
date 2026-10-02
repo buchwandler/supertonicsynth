@@ -14,31 +14,22 @@ Options:
     help    - show help message
 """
 
-import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 
 def main():
     """Run the script."""
     sphinx_build = "sphinx-build"
-
-    # Determine if we're being run from docs/ or from project root
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    if os.path.basename(script_dir) == "docs":
-        # Running from docs directory
-        build_dir = "_build"
-        source_dir = "."
-    else:
-        # Running from project root
-        build_dir = os.path.join("docs", "_build")
-        source_dir = "docs"
+    source_dir = Path(__file__).resolve().parent
+    build_dir = source_dir / "_build"
 
     target = "html" if len(sys.argv) < 2 else sys.argv[1]
 
     if target == "clean":
-        if os.path.exists(build_dir):
+        if build_dir.exists():
             print(f"Cleaning {build_dir}...")
             shutil.rmtree(build_dir)
         return 0
@@ -46,9 +37,6 @@ def main():
     if target == "help":
         print(__doc__)
         return 0
-
-    if not os.path.exists(build_dir):
-        os.makedirs(build_dir)
 
     # Set of valid targets
     valid_targets = {
@@ -69,19 +57,18 @@ def main():
         print("Use 'help' target for help")
         return 1
 
-    if target == "all":
-        # Build all formats
-        for fmt in ["html", "dirhtml", "latex"]:
-            cmd = [sphinx_build, "-b", fmt, source_dir, os.path.join(build_dir, fmt)]
-            print(f"Building {fmt} documentation...")
-            subprocess.run(cmd, check=True)
-    else:
-        # Build specific format
-        cmd = [sphinx_build, "-b", target, source_dir, os.path.join(build_dir, target)]
-        print(f"Building {target} documentation...")
+    build_dir.mkdir(parents=True, exist_ok=True)
+    formats = ["html", "dirhtml", "latex"] if target == "all" else [target]
+    for fmt in formats:
+        output_dir = build_dir / fmt
+        cmd = [sphinx_build, "-b", fmt, str(source_dir), str(output_dir)]
+        print(f"Building {fmt} documentation...")
         subprocess.run(cmd, check=True)
 
-    print(f"Build finished. Documentation is in {os.path.join(build_dir, target)}")
+    if target == "all":
+        print(f"Build finished. Documentation is in {build_dir}")
+    else:
+        print(f"Build finished. Documentation is in {build_dir / target}")
     return 0
 
 

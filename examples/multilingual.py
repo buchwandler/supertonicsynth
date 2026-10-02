@@ -3,7 +3,7 @@ from supertonicsynth import SupertonicRuntime, SynthesisConfig, VoiceLevelConfig
 examples = [
     ("en", "A prepared English sentence."),
     ("de", "Ein vorbereiteter deutscher Satz."),
-    ("fr", "Une phrase française préparée."),
+    ("es", "Una frase española preparada."),
 ]
 config = SynthesisConfig(voice_level=VoiceLevelConfig(mode="calibrated"))
 

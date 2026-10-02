@@ -10,7 +10,7 @@ pip install "supertonicsynth[cpu]"
 
 The project uses dynamic VCS versioning through `setuptools_scm`. Model weights are not included in the wheel.
 
-The current development checkout uses a locally adapted OnnxVoice semantic voice-ref API. The dependency lower bound will be updated only after the first compatible OnnxVoice release is available.
+SupertonicSynth 0.1.1 requires OnnxVoice >=0.2.0,<0.3. The 0.2.x line provides the Supertonic catalog, semantic voice refs, managed installation, local-open, and runtime APIs used by this package.
 
 ## Python usage
 
@@ -56,6 +56,14 @@ supertonicsynth synthesize \
 
 Use `--voice-gain-db FLOAT` for an explicit static dB override. That override takes precedence over the catalog and works for local or custom styles. `--output-gain FLOAT` is a separate request-level linear gain. Final output is clipped to `[-1, 1]` for safety.
 
+### List voices
+
+```bash
+supertonicsynth voices --model supertonic-3
+```
+
+This opens the selected bundle and installs/downloads it if it is not available locally. It is not a metadata-only query.
+
 ## Voice identity and language
 
 OnnxVoice semantic voice refs are the canonical voice identity. A managed `F1` style from `supertonic-3` has the voice ref `supertonic:supertonic-3/F1`. Language remains a separate synthesis condition. Calibration therefore uses a pair such as `(supertonic:supertonic-3/F1, de)`, serialized as `supertonic:supertonic-3/F1@de`. The `@de` suffix belongs to the calibration key, not the voice ref.
@@ -68,13 +76,13 @@ Calibration is an offline, reviewed static correction. The benchmark measures pr
 
 `VoiceLevelConfig(mode="off")` is the default. `mode="calibrated"` opts into the packaged catalog. `normalize_audio` is a separate deterministic peak-normalization control. `output_gain` is a separate linear user-requested gain. Neither feature performs final program mastering, which remains an external responsibility.
 
-The package ships 252 reviewed, statistically eligible voice/language calibrations from the Supertonic-3 counting benchmark. Coverage is partial, not the full 310-key matrix: 48 completed but high-variability identities and all 10 Croatian (`hr`) identities are intentionally absent because a Croatian counting stimulus could not be prepared. Missing entries remain unchanged at runtime (0 dB). The `na` unknown-language sentinel is excluded because it is not a spoken calibration language. See the [benchmark and promotion guide](benchmarks/README.md).
+The package ships 252 reviewed, statistically eligible voice/language calibrations from the Supertonic-3 counting benchmark. Coverage is partial, not the full 310-key matrix: 48 completed but high-variability identities and all 10 Croatian (`hr`) identities are intentionally absent because a Croatian counting stimulus could not be prepared. Missing entries remain unchanged at runtime (0 dB). The `na` unknown-language sentinel is excluded because it is not a spoken calibration language. See the [benchmark and promotion guide](https://github.com/buchwandler/supertonicsynth/blob/main/benchmarks/README.md).
 
 ## Further documentation
 
-- [Architecture](docs/architecture.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Benchmark and promotion](benchmarks/README.md)
+- [Architecture](https://github.com/buchwandler/supertonicsynth/blob/main/docs/architecture.md)
+- [Troubleshooting](https://github.com/buchwandler/supertonicsynth/blob/main/docs/troubleshooting.md)
+- [Benchmark and promotion](https://github.com/buchwandler/supertonicsynth/blob/main/benchmarks/README.md)
 
 ## Local bundle
 

@@ -30,4 +30,4 @@ The calibration benchmark prepares numbers 1 through 10 with `numeralform`, then
 
 ## OnnxVoice dependency version
 
-The development checkout currently relies on a locally adapted OnnxVoice semantic voice-ref API. Do not guess a released dependency bound. Raise the project lower bound only after an OnnxVoice release containing that API is available and verified.
+SupertonicSynth requires OnnxVoice >=0.2.0,<0.3. Install the compatible 0.2.x line, which provides the semantic voice-ref, catalog, managed-installation, local-open, and runtime APIs used by the package.

@@ -23,6 +23,7 @@ from .config import (
     DEFAULT_MAX_CHUNK_LENGTH_KO,
     DEFAULT_MODEL,
     DEFAULT_VOICE,
+    MAX_SEED,
     MAX_TEXT_LENGTH,
 )
 from .errors import (
@@ -205,6 +206,10 @@ class SupertonicRuntime:
         chunks = chunk_text(text, limit)
         if not chunks:
             raise InvalidRequestError("text produced no synthesis chunks")
+        if effective.seed is not None and effective.seed + len(chunks) - 1 > MAX_SEED:
+            raise InvalidRequestError(
+                f"seed for {len(chunks)} chunks would exceed the maximum seed {MAX_SEED}"
+            )
         audio_parts: list[np.ndarray] = []
         for index, chunk in enumerate(chunks):
             batch = self.frontend.encode(chunk, language)

@@ -1,12 +1,14 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 import supertonicsynth.voice_level as voice_level_module
 from supertonicsynth._onnxvoice import (
     ResolvedSupertonicBundle,
     installation_to_bundle_info,
 )
+from supertonicsynth.errors import InvalidRequestError
 from supertonicsynth.runtime import SupertonicRuntime
 from supertonicsynth.style import VoiceStyle
 from supertonicsynth.types import SynthesisConfig
@@ -79,6 +81,16 @@ def test_runtime_fake(tmp_path):
     assert fake.calls[0][1]["seed"] == 4
     runtime.close()
     assert fake.closed
+
+
+def test_runtime_rejects_derived_seed_overflow_before_inference(tmp_path):
+    runtime, fake, _ = make_runtime(tmp_path)
+    config = SynthesisConfig(max_chunk_length=10, seed=0xFFFFFFFF)
+
+    with pytest.raises(InvalidRequestError, match="maximum seed"):
+        runtime.synthesize_text("First. Second.", config=config)
+
+    assert fake.calls == []
 
 
 def test_managed_voice_identity_overrides_and_postprocessing(tmp_path):

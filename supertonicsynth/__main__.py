@@ -24,7 +24,11 @@ def build_parser() -> argparse.ArgumentParser:
     synth.add_argument("--voice-gain-db", type=float)
     synth.add_argument("--output-gain", type=float, default=1.0)
     synth.add_argument("--normalize-audio", action=argparse.BooleanOptionalAction, default=None)
-    voices = sub.add_parser("voices", help="list installed bundle voices")
+    voices = sub.add_parser(
+        "voices",
+        help="install/open a model bundle and list its voices",
+        description="Installs and downloads the selected bundle if needed, then lists its voices.",
+    )
     voices.add_argument("--model", default="supertonic-3")
     return parser
 
