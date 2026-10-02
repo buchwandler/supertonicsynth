@@ -1,0 +1,60 @@
+{
+  "candidate_count": 2,
+  "candidates": [
+    {
+      "additions": 2317,
+      "deletions": 11,
+      "patch_file": "1614c4c.patch",
+      "patch_sha256": "9db021085c3bfc6da4d32c09a073a47b0c1032f9df689bca64080116a757e126",
+      "paths": [
+        "CHANGELOG.md",
+        "README.md",
+        "benchmarks/README.md",
+        "docs/architecture.md",
+        "docs/troubleshooting.md",
+        "supertonicsynth/data/voice_level_calibration.json",
+        "tests/test_voice_leveling.py"
+      ],
+      "sha": "1614c4cc1c0b49701be2f78a92de16516ad42573",
+      "short_sha": "1614c4c",
+      "source_ref": "git:1614c4cc1c0b49701be2f78a92de16516ad42573"
+    },
+    {
+      "additions": 235,
+      "deletions": 66,
+      "patch_file": "6a261a5.patch",
+      "patch_sha256": "8d69443ca9b022e311e6accc0fe308a12c961f945b671b835d70093c2103a37d",
+      "paths": [
+        ".github/workflows/python-publish.yml",
+        ".github/workflows/tests.yml",
+        "CHANGELOG.md",
+        "README.md",
+        "docs/architecture.md",
+        "docs/conf.py",
+        "docs/index.md",
+        "docs/make.py",
+        "docs/troubleshooting.md",
+        "examples/multilingual.py",
+        "examples/voices.py",
+        "pyproject.toml",
+        "supertonicsynth/__main__.py",
+        "supertonicsynth/config.py",
+        "supertonicsynth/runtime.py",
+        "supertonicsynth/types.py",
+        "tests/test_runtime_fake.py",
+        "tests/test_types.py"
+      ],
+      "sha": "6a261a52e47b402d56f970f66bac3a65f9d4e1b2",
+      "short_sha": "6a261a5",
+      "source_ref": "git:6a261a52e47b402d56f970f66bac3a65f9d4e1b2"
+    }
+  ],
+  "git_base_ref": "923c0a635a19bafe89172be84cbc85e8323ae10d",
+  "git_base_sha": "923c0a635a19bafe89172be84cbc85e8323ae10d",
+  "git_head_ref": "6a261a52e47b402d56f970f66bac3a65f9d4e1b2",
+  "git_head_sha": "6a261a52e47b402d56f970f66bac3a65f9d4e1b2",
+  "include_merges": "nontrivial",
+  "object_type": "git_evidence_manifest",
+  "release_version": "v0.1.1",
+  "schema_version": 1
+}

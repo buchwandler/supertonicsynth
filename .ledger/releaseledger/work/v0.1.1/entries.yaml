@@ -1,0 +1,102 @@
+schema: releaseledger.entry-batch.v1
+operation: create
+schema_version: 1
+object_type: release_entry_batch
+release_version: v0.1.1
+git_base_ref: 923c0a635a19bafe89172be84cbc85e8323ae10d
+git_base_sha: 923c0a635a19bafe89172be84cbc85e8323ae10d
+git_head_ref: 6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+git_head_sha: 6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+include_merges: nontrivial
+entries:
+  - kind: added
+    summary: Added 252 reviewed voice and language calibrations to the packaged voice level calibration catalog
+    body:
+      "Coverage is partial by design: 48 completed but high-variability identities and all
+      10 Croatian identities are absent from the 310-key matrix. Missing identities continue
+      to resolve to 0 dB and leave audio unchanged."
+    status: accepted
+    source_refs:
+      - git:1614c4cc1c0b49701be2f78a92de16516ad42573
+    paths:
+      - supertonicsynth/data/voice_level_calibration.json
+      - tests/test_voice_leveling.py
+    sources:
+      - git:1614c4cc1c0b49701be2f78a92de16516ad42573
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: changed
+    summary: Changed SynthesisConfig validation to enforce integer, finite, and seed range constraints and reject overflowing seeds
+    status: accepted
+    source_refs:
+      - git:6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    paths:
+      - supertonicsynth/types.py
+      - supertonicsynth/runtime.py
+      - supertonicsynth/config.py
+      - tests/test_types.py
+      - tests/test_runtime_fake.py
+    sources:
+      - git:6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: changed
+    summary: Changed the OnnxVoice requirement to >=0.2.0,<0.3 across all install extras
+    status: accepted
+    source_refs: []
+    paths:
+      - pyproject.toml
+    sources:
+      - git:6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: quality
+    summary: Improved the package license metadata to an SPDX expression with bundled license files
+    status: accepted
+    source_refs: []
+    paths:
+      - pyproject.toml
+    sources:
+      - git:6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: docs
+    summary: Documented bundle installation by the voices command and added a Sphinx documentation build with an index page
+    status: accepted
+    source_refs: []
+    paths:
+      - README.md
+      - docs/index.md
+      - docs/conf.py
+      - docs/make.py
+      - supertonicsynth/__main__.py
+      - examples/voices.py
+      - examples/multilingual.py
+    sources:
+      - git:6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: internal
+    summary: Improved the publish and test CI workflows
+    status: accepted
+    internal: true
+    source_refs: []
+    paths:
+      - .github/workflows/python-publish.yml
+      - .github/workflows/tests.yml
+    sources:
+      - git:6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"

@@ -1,0 +1,3677 @@
+ .gitignore                                        |   1 +
+ CHANGELOG.md                                      |   3 +
+ README.md                                         | 101 +++--
+ benchmarks/README.md                              |  58 +++
+ benchmarks/__init__.py                            |   1 +
+ benchmarks/data/voice_level_policy.json           |  11 +
+ benchmarks/promote_voice_calibration.py           | 525 ++++++++++++++++++++++
+ benchmarks/voice_level_benchmark.py               | 462 +++++++++++++++++++
+ docs/architecture.md                              |  47 ++
+ docs/troubleshooting.md                           |  33 ++
+ examples/basic.py                                 |  15 +-
+ examples/multilingual.py                          |  21 +-
+ pyproject.toml                                    |   8 +-
+ supertonicsynth/__init__.py                       |  57 ++-
+ supertonicsynth/__main__.py                       |  19 +-
+ supertonicsynth/_onnxvoice.py                     |  14 +-
+ supertonicsynth/asset_manager.py                  |   2 +
+ supertonicsynth/audio.py                          |  76 ++++
+ supertonicsynth/convenience.py                    |   2 +
+ supertonicsynth/data/voice_level_calibration.json |   8 +
+ supertonicsynth/runtime.py                        | 132 +++++-
+ supertonicsynth/text_split.py                     |   1 +
+ supertonicsynth/types.py                          |  28 +-
+ supertonicsynth/voice_level.py                    | 364 +++++++++++++++
+ tests/test_audio.py                               |  91 ++++
+ tests/test_cli.py                                 |  96 ++++
+ tests/test_frontend.py                            |   2 +
+ tests/test_promote_voice_calibration.py           | 211 +++++++++
+ tests/test_runtime_fake.py                        | 292 +++++++++++-
+ tests/test_style.py                               |   2 +
+ tests/test_types.py                               |  23 +
+ tests/test_voice_level_benchmark.py               | 181 ++++++++
+ tests/test_voice_leveling.py                      | 243 ++++++++++
+ 33 files changed, 3034 insertions(+), 96 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index eb1d420..f9aad5a 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -218,3 +218,4 @@ __marimo__/
+ .streamlit/secrets.toml
+ context_supertonicsynth*.*
+ supertonicsynth/_version.py
++benchmarks/output/
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 537d945..e31191a 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,4 +2,7 @@
+
+ ## Unreleased
+
++- Add opt-in static voice calibration keyed by canonical OnnxVoice semantic voice ref and synthesis language, with strict catalog loading and request-level gain controls.
++- Add shared finite-audio validation, peak normalization, clipping, PCM16/WAV conversion, calibration diagnostics, and reproducibility metadata.
++- Add deterministic counting benchmarks, language-specific Spokenform/Numeralform stimuli, and review-gated multi-report candidate promotion. Keep the packaged calibration catalog empty while `hr` stimulus preparation is unsupported.
+ - Bootstrap Supertonic-3 frontend/runtime package around the staged OnnxVoice `supertonic` adapter and catalog.
+diff --git a/README.md b/README.md
+index 98906bf..d21169d 100644
+--- a/README.md
++++ b/README.md
+@@ -1,24 +1,6 @@
+ # supertonicsynth
+
+-A flat-layout Python synthesis package for Supertonic-3, using OnnxVoice for model storage, integrity verification, ONNX sessions, providers, and runtime diagnostics.
+-
+-## Design
+-
+-`supertonicsynth` owns:
+-
+-- Supertonic text normalization and Unicode indexing.
+-- language tokens.
+-- voice-style JSON loading.
+-- long-text chunking.
+-- synthesis configuration and WAV/result handling.
+-
+-OnnxVoice owns:
+-
+-- the `supertonic` catalog/store.
+-- downloads and checksums.
+-- the four ONNX sessions.
+-- provider configuration.
+-- the Supertonic model-ready inference loop.
++A flat-layout Python synthesis package for Supertonic-3. OnnxVoice owns catalog resolution, managed asset installation and integrity, ONNX Runtime sessions, providers, and inference. SupertonicSynth owns text synthesis, language selection, voice styles, chunking, static voice-level calibration, output gain, and synthesis metadata.
+
+ ## Install
+
+@@ -26,54 +8,97 @@ OnnxVoice owns:
+ pip install "supertonicsynth[cpu]"
+ ```
+
+-The package uses dynamic VCS versioning via `setuptools_scm`; there is no static version in `pyproject.toml`.
++The project uses dynamic VCS versioning through `setuptools_scm`. Model weights are not included in the wheel.
+
+-The pretrained model catalog targets the archived Supertonic TTS weights at `supertone-oss-archive/supertonic-3`; model downloading remains an OnnxVoice responsibility.
++The current development checkout uses a locally adapted OnnxVoice semantic voice-ref API. The dependency lower bound will be updated only after the first compatible OnnxVoice release is available.
+
+-## Usage
++## Python usage
+
+ ```python
+-from supertonicsynth import SupertonicRuntime
++from supertonicsynth import (
++    SupertonicRuntime,
++    SynthesisConfig,
++    VoiceLevelConfig,
++)
++
++config = SynthesisConfig(
++    voice_level=VoiceLevelConfig(mode="calibrated"),
++)
+
+ with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
+     result = tts.synthesize_text(
+-        "Welcome to SupertonicSynth.",
+-        voice="M1",
+-        language="en",
+-        steps=5,
+-        seed=1234,
++        "A prepared German sentence.",
++        voice="F1",
++        language="de",
++        config=config,
+     )
+     result.write_wav("output.wav")
++
++print(result.metadata["voice_ref"])
++print(result.metadata["voice_level"]["calibration_key"])
++```
++
++`result.pcm16()` and `result.write_wav(path)` use the same finite-audio validation and clipping policy.
++
++## CLI
++
++```bash
++supertonicsynth synthesize \
++  "A prepared German sentence." \
++  --model supertonic-3 \
++  --voice F1 \
++  --language de \
++  --voice-level calibrated \
++  --no-normalize-audio \
++  --output-gain 1.0 \
++  -o output.wav
+ ```
+
+-Local bundle:
++Use `--voice-gain-db FLOAT` for an explicit static dB override. That override takes precedence over the catalog and works for local or custom styles. `--output-gain FLOAT` is a separate request-level linear gain. Final output is clipped to `[-1, 1]` for safety.
++
++## Voice identity and language
++
++OnnxVoice semantic voice refs are the canonical voice identity. A managed `F1` style from `supertonic-3` has the voice ref `supertonic:supertonic-3/F1`. Language remains a separate synthesis condition. Calibration therefore uses a pair such as `(supertonic:supertonic-3/F1, de)`, serialized as `supertonic:supertonic-3/F1@de`. The `@de` suffix belongs to the calibration key, not the voice ref.
++
++Automatic catalog calibration applies only to managed OnnxVoice installations and catalog-backed string styles. Local bundles and caller-created `VoiceStyle` values do not receive calibration by matching their directory or style name. They remain unchanged unless an explicit `voice_level.gain_db` override is provided.
++
++## Loudness calibration and output gain
++
++Calibration is an offline, reviewed static correction. The benchmark measures prepared speech and the promotion tool stores measured gain against the canonical voice ref and synthesis language. Normal synthesis performs no LUFS measurement and does not contact a network service for calibration. Missing identity or missing calibration leaves the audio unchanged.
++
++`VoiceLevelConfig(mode="off")` is the default. `mode="calibrated"` opts into the packaged catalog. `normalize_audio` is a separate deterministic peak-normalization control. `output_gain` is a separate linear user-requested gain. Neither feature performs final program mastering, which remains an external responsibility.
++
++The packaged catalog is currently empty. The full measurement matrix is blocked because the local Spokenform and Numeralform checkouts do not support Croatian (`hr`); the benchmark fails for that language instead of borrowing English. See the [benchmark and promotion guide](benchmarks/README.md). The `na` unknown-language sentinel is not a spoken language and is intentionally excluded from calibration coverage.
++
++## Further documentation
++
++- [Architecture](docs/architecture.md)
++- [Troubleshooting](docs/troubleshooting.md)
++- [Benchmark and promotion](benchmarks/README.md)
++
++## Local bundle
+
+ ```python
+ with SupertonicRuntime.from_local("/models/supertonic-3") as tts:
+     result = tts.synthesize_text("Hello.", voice="F1", language="en")
+ ```
+
+-## Runtime prerequisite
+-
+-The included package targets the staged OnnxVoice work described in the sibling implementation briefs. Until an OnnxVoice release includes `system="supertonic"`, local/pretrained opening will fail with a runtime capability error.
++Local bundles are unmanaged and do not claim a canonical OnnxVoice voice ref for automatic calibration.
+
+ ## Repository layout
+
+-There is deliberately **no `src/` layer**:
++The package deliberately has no `src/` layer:
+
+ ```text
+ supertonicsynth/
+-  __init__.py
+-  runtime.py
+-  frontend.py
+-  ...
+ tests/
+ examples/
++benchmarks/
+ pyproject.toml
+ ```
+
+ ## Licensing
+
+-SupertonicSynth project code is Apache-2.0. Portions of the frontend/text behavior are derived from the archived MIT-licensed `supertone-oss-archive/supertonic-py`; the upstream MIT notice is preserved under `licenses/SUPERTONIC-PY-MIT.txt` and in `NOTICE`.
++SupertonicSynth project code is Apache-2.0. Portions of the frontend and text behavior are derived from the archived MIT-licensed `supertone-oss-archive/supertonic-py`; the upstream MIT notice is preserved under `licenses/SUPERTONIC-PY-MIT.txt` and in `NOTICE`.
+
+ Supertonic-3 model assets are not included in this package and retain their upstream OpenRAIL-M model license.
+diff --git a/benchmarks/README.md b/benchmarks/README.md
+new file mode 100644
+index 0000000..d5d8718
+--- /dev/null
++++ b/benchmarks/README.md
+@@ -0,0 +1,58 @@
++# Supertonic voice calibration benchmark
++
++The benchmark measures fully prepared counting speech through a managed Supertonic runtime. It renders the sequence 1 through 10 with `numeralform`, then prepares that language-specific text with `spokenform`. Both dependencies must be importable in the workspace. In this sibling checkout, install them with `python -m pip install -e ../numeralform -e ../spokenform`. The report records the source sequence, rendered words, exact prepared text, tool versions, semantic voice refs, synthesis hashes, repeat seeds, and BS.1770 measurements.
++
++The matrix is derived from the installed managed bundle's catalog-backed styles and `SUPPORTED_LANGUAGES`. `UNKNOWN_LANGUAGE` (`na`) is not included. No alias or caller-created style is used for catalog identities. Synthesis runs with calibration off, normalization on, output gain 1.0, five steps, and three fixed repeat seeds. The packaged catalog is never modified by either tool.
++
++Generate and inspect the complete stimulus set without opening the model runtime:
++
++```bash
++python benchmarks/voice_level_benchmark.py --prepare-only \
++  --stimuli-output benchmarks/output/voice_level_calibration/counting_stimuli.json
++```
++
++The stimulus manifest lists every supported spoken language, exact prepared text, tool versions, and per-language preparation failures. It returns nonzero while any requested language is unavailable.
++
++Run the complete matrix offline when model assets are installed:
++
++```bash
++python benchmarks/voice_level_benchmark.py --offline
++```
++
++Run a smaller diagnostic report:
++
++```bash
++python benchmarks/voice_level_benchmark.py \
++  --offline --voice F1 --language en \
++  --output benchmarks/output/voice_level_calibration/f1-en.json
++```
++
++The exit status is nonzero for any preparation, synthesis, or measurement failure. The report is still written and marks missing or variable entries. To collect disjoint language reports, run one `--language` selection per report, then supply every report to the promotion tool.
++
++## Reviewed candidate promotion
++
++Create a review template after collecting reports:
++
++```bash
++python benchmarks/promote_voice_calibration.py \
++  benchmarks/output/voice_level_calibration/report-en.json \
++  benchmarks/output/voice_level_calibration/report-de.json \
++  --review-template \
++  --output benchmarks/output/voice_level_calibration/review.json
++```
++
++Inspect the measurements, complete the reviewer and timestamp fields, and explicitly approve only individually reviewed, complete, low-variability entries with a rationale. Then build a separate candidate:
++
++```bash
++python benchmarks/promote_voice_calibration.py \
++  benchmarks/output/voice_level_calibration/report-en.json \
++  benchmarks/output/voice_level_calibration/report-de.json \
++  --review benchmarks/output/voice_level_calibration/review.json \
++  --output benchmarks/output/voice_level_calibration/candidate.json
++```
++
++The review manifest is tied to the exact input report bytes. Incomplete matrix coverage requires `--allow-partial`; incomplete and high-variability identities are never promoted. The candidate is written separately with a companion review record. The tool refuses to write the packaged production catalog. Review the candidate and review record before any deliberate production catalog edit.
++
++## Language preparation limits
++
++Generation fails per language rather than borrowing English or leaving numeric digits behind. In the current local sibling checkouts, 30 supported spoken languages prepare successfully, but `hr` is not registered by `numeralform` or `spokenform`. The benchmark records `hr` as a preparation failure and the full matrix therefore remains incomplete. Do not mark calibration coverage complete or package a full-matrix catalog until Croatian stimulus preparation has a verified locale-specific path. The `na` sentinel remains excluded, not mapped to English.
+diff --git a/benchmarks/__init__.py b/benchmarks/__init__.py
+new file mode 100644
+index 0000000..403e2b5
+--- /dev/null
++++ b/benchmarks/__init__.py
+@@ -0,0 +1 @@
++"""Offline voice-calibration measurement and promotion tools."""
+diff --git a/benchmarks/data/voice_level_policy.json b/benchmarks/data/voice_level_policy.json
+new file mode 100644
+index 0000000..5502316
+--- /dev/null
++++ b/benchmarks/data/voice_level_policy.json
+@@ -0,0 +1,11 @@
++{
++  "schema": 1,
++  "name": "supertonicsynth-counting-1-to-10-v1",
++  "repeats": 3,
++  "seed": 1729,
++  "steps": 5,
++  "reference_lufs": -24.0,
++  "min_gain_db": -12.0,
++  "max_gain_db": 8.0,
++  "max_mad_lu": 0.75
++}
+diff --git a/benchmarks/promote_voice_calibration.py b/benchmarks/promote_voice_calibration.py
+new file mode 100644
+index 0000000..f92762d
+--- /dev/null
++++ b/benchmarks/promote_voice_calibration.py
+@@ -0,0 +1,525 @@
++#!/usr/bin/env python3
++"""Merge measured reports and create a reviewed candidate calibration catalog."""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import math
++import statistics
++from collections import defaultdict
++from collections.abc import Mapping, Sequence
++from datetime import datetime
++from pathlib import Path
++from typing import Any
++
++from supertonicsynth import SUPPORTED_LANGUAGES, UNKNOWN_LANGUAGE
++from supertonicsynth.voice_level import VoiceCalibrationKey
++
++PRODUCTION_CATALOG = (
++    Path(__file__).resolve().parents[1]
++    / "supertonicsynth"
++    / "data"
++    / "voice_level_calibration.json"
++)
++DEFAULT_OUTPUT = Path("benchmarks/output/voice_level_calibration/candidate_catalog.json")
++EXPECTED_LANGUAGES = tuple(sorted(set(SUPPORTED_LANGUAGES) - {UNKNOWN_LANGUAGE}))
++
++
++def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
++    result: dict[str, Any] = {}
++    for key, value in pairs:
++        if key in result:
++            raise ValueError(f"duplicate JSON object key: {key!r}")
++        result[key] = value
++    return result
++
++
++def _read_json(path: Path) -> Any:
++    return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_object_pairs)
++
++
++def _finite_number(value: Any, name: str) -> float:
++    if isinstance(value, bool) or not isinstance(value, (int, float)):
++        raise ValueError(f"{name} must be a finite number")
++    result = float(value)
++    if not math.isfinite(result):
++        raise ValueError(f"{name} must be finite")
++    return result
++
++
++def _required_string(value: Any, name: str) -> str:
++    if not isinstance(value, str) or not value.strip():
++        raise ValueError(f"{name} must be a non-empty string")
++    return value
++
++
++def _sha256_digest(value: Any, name: str) -> str:
++    digest = _required_string(value, name)
++    if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
++        raise ValueError(f"{name} must be a lowercase SHA-256 digest")
++    return digest
++
++
++def _normalize_report(report: Mapping[str, Any]) -> dict[str, Any]:
++    if (
++        isinstance(report.get("schema"), bool)
++        or not isinstance(report.get("schema"), int)
++        or report["schema"] != 1
++    ):
++        raise ValueError("unsupported measurement report schema")
++    policy = report.get("policy")
++    matrix = report.get("matrix")
++    generated_with = report.get("generated_with")
++    stimuli = report.get("stimuli")
++    if not all(isinstance(item, Mapping) for item in (policy, matrix, generated_with, stimuli)):
++        raise ValueError("measurement report is missing policy, matrix, versions, or stimuli")
++    corpus = _required_string(report.get("corpus"), "corpus")
++    model = _required_string(report.get("model"), "model")
++    repeats = policy.get("repeats")
++    seed = policy.get("seed")
++    if isinstance(repeats, bool) or not isinstance(repeats, int) or repeats < 2:
++        raise ValueError("measurement policy repeats must be at least two")
++    if isinstance(seed, bool) or not isinstance(seed, int):
++        raise ValueError("measurement policy seed must be an integer")
++    _finite_number(policy.get("reference_lufs"), "reference_lufs")
++    minimum = _finite_number(policy.get("min_gain_db"), "min_gain_db")
++    maximum = _finite_number(policy.get("max_gain_db"), "max_gain_db")
++    max_mad = _finite_number(policy.get("max_mad_lu"), "max_mad_lu")
++    if minimum > maximum or max_mad < 0:
++        raise ValueError("measurement policy gain or variability limits are invalid")
++
++    raw_voices = matrix.get("catalog_voice_refs")
++    raw_languages = matrix.get("languages")
++    raw_expected = matrix.get("expected_keys")
++    raw_selected = matrix.get("selected_keys")
++    if not isinstance(raw_voices, list) or not raw_voices:
++        raise ValueError("measurement matrix must identify canonical catalog voice refs")
++    if not isinstance(raw_languages, list) or tuple(raw_languages) != EXPECTED_LANGUAGES:
++        raise ValueError("measurement matrix must cover all supported spoken languages in order")
++    voice_refs = [_required_string(ref, "catalog voice ref") for ref in raw_voices]
++    if len(voice_refs) != len(set(voice_refs)):
++        raise ValueError("measurement matrix contains duplicate catalog voice refs")
++    for voice_ref in voice_refs:
++        if not voice_ref.startswith("supertonic:"):
++            raise ValueError(f"non-canonical voice ref in report: {voice_ref}")
++    expected_keys = sorted(
++        str(VoiceCalibrationKey(voice_ref, language))
++        for voice_ref in voice_refs
++        for language in EXPECTED_LANGUAGES
++    )
++    if raw_expected != expected_keys:
++        raise ValueError("measurement report expected keys do not match its catalog matrix")
++    if (
++        not isinstance(raw_selected, list)
++        or any(not isinstance(key, str) for key in raw_selected)
++        or len(raw_selected) != len(set(raw_selected))
++        or not set(raw_selected) <= set(expected_keys)
++    ):
++        raise ValueError("measurement report selected keys are invalid")
++    if not isinstance(generated_with, Mapping) or any(
++        not isinstance(name, str) or not isinstance(value, str) or not value
++        for name, value in generated_with.items()
++    ):
++        raise ValueError("generated_with must map package names to non-empty versions")
++    for language, stimulus in stimuli.items():
++        if language not in EXPECTED_LANGUAGES or not isinstance(stimulus, Mapping):
++            raise ValueError(f"invalid stimulus report for language {language!r}")
++        if stimulus.get("language") != language or not stimulus.get("prepared_text"):
++            raise ValueError(f"stimulus for {language!r} is missing prepared text provenance")
++        if (
++            stimulus.get("number_renderer") != "numeralform"
++            or stimulus.get("text_preparer") != "spokenform"
++        ):
++            raise ValueError(
++                f"stimulus for {language!r} does not use the declared preparation tools"
++            )
++
++    measurements = report.get("measurements")
++    failures = report.get("failures")
++    stimulus_failures = report.get("stimulus_failures")
++    if not isinstance(measurements, list) or not isinstance(failures, list):
++        raise ValueError("measurement report arrays are malformed")
++    if not isinstance(stimulus_failures, list):
++        raise ValueError("stimulus_failures must be a list")
++    if any(not isinstance(row, Mapping) for row in failures):
++        raise ValueError("failure entries must be objects")
++    if any(
++        not isinstance(row, Mapping) or row.get("language") not in EXPECTED_LANGUAGES
++        for row in stimulus_failures
++    ):
++        raise ValueError("stimulus preparation failures must identify a spoken language")
++    return {
++        "corpus": corpus,
++        "model": model,
++        "policy": dict(policy),
++        "matrix": {
++            "catalog_voice_refs": voice_refs,
++            "languages": list(raw_languages),
++            "expected_keys": expected_keys,
++        },
++        "selected_keys": list(raw_selected),
++        "generated_with": dict(generated_with),
++        "stimuli": dict(stimuli),
++        "measurements": measurements,
++        "failures": failures,
++        "stimulus_failures": stimulus_failures,
++    }
++
++
++def _merge_reports(
++    reports: Sequence[Mapping[str, Any]],
++) -> tuple[dict[str, Any], list[dict[str, Any]]]:
++    if not reports:
++        raise ValueError("at least one measurement report is required")
++    normalized = [_normalize_report(report) for report in reports]
++    first = normalized[0]
++    for report in normalized[1:]:
++        for name in ("corpus", "model", "policy", "matrix", "generated_with"):
++            if report[name] != first[name]:
++                raise ValueError(f"measurement reports disagree on {name}")
++
++    stimuli: dict[str, Mapping[str, Any]] = {}
++    measurements: dict[tuple[str, int], dict[str, Any]] = {}
++    failures: list[dict[str, Any]] = []
++    stimulus_failures: dict[str, Mapping[str, Any]] = {}
++    for report in normalized:
++        for language, stimulus in report["stimuli"].items():
++            previous = stimuli.get(language)
++            if previous is not None and previous != stimulus:
++                raise ValueError(f"measurement reports disagree on the {language!r} stimulus")
++            stimuli[language] = stimulus
++        for row in report["stimulus_failures"]:
++            if not isinstance(row, Mapping) or row.get("language") not in EXPECTED_LANGUAGES:
++                raise ValueError("invalid stimulus preparation failure")
++            stimulus_failures[str(row["language"])] = row
++        for row in report["measurements"]:
++            if not isinstance(row, Mapping):
++                raise ValueError("measurement entries must be objects")
++            key = _required_string(row.get("calibration_key"), "calibration_key")
++            parsed = VoiceCalibrationKey.parse(key)
++            if str(parsed) != key or parsed.voice_ref not in first["matrix"]["catalog_voice_refs"]:
++                raise ValueError(f"measurement uses an unknown or non-canonical identity: {key}")
++            if key not in report["selected_keys"]:
++                raise ValueError(f"measurement was not selected in its report: {key}")
++            if parsed.language not in report["stimuli"]:
++                raise ValueError(f"measurement has no prepared stimulus provenance: {key}")
++            if parsed.language not in EXPECTED_LANGUAGES:
++                raise ValueError(f"measurement uses an unsupported calibration language: {key}")
++            if row.get("voice_ref") != parsed.voice_ref or row.get("language") != parsed.language:
++                raise ValueError(f"measurement identity fields disagree for {key}")
++            repeat = row.get("repeat")
++            if (
++                isinstance(repeat, bool)
++                or not isinstance(repeat, int)
++                or not 0 <= repeat < first["policy"]["repeats"]
++            ):
++                raise ValueError(f"measurement repeat is outside the declared policy for {key}")
++            if row.get("seed") != first["policy"]["seed"] + repeat:
++                raise ValueError(f"measurement seed does not match the fixed policy for {key}")
++            _finite_number(row.get("integrated_lufs"), f"{key}.integrated_lufs")
++            sample_rate = row.get("sample_rate")
++            if (
++                isinstance(sample_rate, bool)
++                or not isinstance(sample_rate, int)
++                or sample_rate <= 0
++            ):
++                raise ValueError(f"measurement sample rate is invalid for {key}")
++            _finite_number(row.get("duration_seconds"), f"{key}.duration_seconds")
++            _required_string(row.get("synthesis_hash"), f"{key}.synthesis_hash")
++            identity = (key, repeat)
++            if identity in measurements:
++                raise ValueError(f"duplicate measurement repeat {repeat} for {key}")
++            measurements[identity] = dict(row)
++        failures.extend(row for row in report["failures"] if isinstance(row, Mapping))
++
++    if set(stimuli) & set(stimulus_failures):
++        raise ValueError("a language has both a prepared stimulus and a preparation failure")
++    return (
++        {
++            **first,
++            "stimuli": stimuli,
++            "stimulus_failures": list(stimulus_failures.values()),
++            "measurements": list(measurements.values()),
++            "failures": failures,
++        },
++        list(measurements.values()),
++    )
++
++
++def _aggregates(merged: Mapping[str, Any]) -> list[dict[str, Any]]:
++    groups: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
++    for row in merged["measurements"]:
++        groups[str(row["calibration_key"])].append(row)
++    policy = merged["policy"]
++    rows = []
++    for key in merged["matrix"]["expected_keys"]:
++        values = [float(row["integrated_lufs"]) for row in groups.get(key, ())]
++        repeats = len(values)
++        median = statistics.median(values) if values else None
++        mad = statistics.median(abs(value - median) for value in values) if values else None
++        if repeats != policy["repeats"]:
++            status = "incomplete"
++            gain_db = None
++        elif mad is not None and mad > policy["max_mad_lu"]:
++            status = "high_variability"
++            gain_db = None
++        else:
++            status = "eligible"
++            requested_gain = policy["reference_lufs"] - median
++            gain_db = min(policy["max_gain_db"], max(policy["min_gain_db"], requested_gain))
++        voice_ref, language = key.rsplit("@", 1)
++        rows.append(
++            {
++                "voice_ref": voice_ref,
++                "language": language,
++                "calibration_key": key,
++                "median_lufs": median,
++                "mad_lu": mad,
++                "repeat_count": repeats,
++                "status": status,
++                "gain_db": gain_db,
++            }
++        )
++    return rows
++
++
++def _review_metadata(review: Mapping[str, Any], report_hashes: Sequence[str]) -> dict[str, Any]:
++    if (
++        isinstance(review.get("schema"), bool)
++        or not isinstance(review.get("schema"), int)
++        or review["schema"] != 1
++    ):
++        raise ValueError("unsupported review manifest schema")
++    reviewer = _required_string(review.get("reviewer"), "reviewer")
++    reviewed_at = _required_string(review.get("reviewed_at"), "reviewed_at")
++    try:
++        timestamp = datetime.fromisoformat(reviewed_at.replace("Z", "+00:00"))
++    except ValueError as error:
++        raise ValueError("reviewed_at must be an ISO 8601 timestamp") from error
++    if timestamp.tzinfo is None:
++        raise ValueError("reviewed_at must include a timezone")
++    expected_hashes = [
++        _sha256_digest(digest, f"report_hashes[{index}]")
++        for index, digest in enumerate(report_hashes)
++    ]
++    sources = review.get("source_reports")
++    if (
++        not isinstance(sources, list)
++        or any(not isinstance(source, str) for source in sources)
++        or len(sources) != len(set(sources))
++        or sorted(sources) != sorted(expected_hashes)
++    ):
++        raise ValueError("review manifest source_reports do not match the input reports")
++    decisions = review.get("decisions")
++    if not isinstance(decisions, Mapping):
++        raise ValueError("review decisions must be an object")
++    checked: dict[str, dict[str, str]] = {}
++    for key, decision in decisions.items():
++        parsed = VoiceCalibrationKey.parse(key)
++        if str(parsed) != key or not isinstance(decision, Mapping):
++            raise ValueError(f"invalid review decision for {key!r}")
++        choice = decision.get("decision")
++        rationale = _required_string(decision.get("rationale"), f"{key}.rationale")
++        if choice not in {"approve", "exclude"}:
++            raise ValueError(f"{key}.decision must be 'approve' or 'exclude'")
++        if choice == "approve" and rationale == "Review this measured result before approving it.":
++            raise ValueError(f"{key} approval needs a completed review rationale")
++        checked[key] = {"decision": str(choice), "rationale": rationale}
++    return {
++        "reviewer": reviewer,
++        "reviewed_at": reviewed_at,
++        "source_reports": sorted(report_hashes),
++        "decisions": checked,
++    }
++
++
++def build_review_template(
++    reports: Sequence[Mapping[str, Any]], report_hashes: Sequence[str]
++) -> dict[str, Any]:
++    merged, _ = _merge_reports(reports)
++    aggregates = _aggregates(merged)
++    return {
++        "schema": 1,
++        "reviewer": "",
++        "reviewed_at": "",
++        "source_reports": sorted(report_hashes),
++        "decisions": {
++            row["calibration_key"]: {
++                "decision": "exclude",
++                "rationale": "Review this measured result before approving it.",
++                "status": row["status"],
++                "median_lufs": row["median_lufs"],
++                "mad_lu": row["mad_lu"],
++                "gain_db": row["gain_db"],
++            }
++            for row in aggregates
++            if row["status"] == "eligible"
++        },
++    }
++
++
++def build_candidate(
++    reports: Sequence[Mapping[str, Any]],
++    review: Mapping[str, Any],
++    report_hashes: Sequence[str],
++    *,
++    allow_partial: bool,
++) -> tuple[dict[str, Any], dict[str, Any]]:
++    merged, _ = _merge_reports(reports)
++    expected_keys = set(merged["matrix"]["expected_keys"])
++    aggregate_rows = _aggregates(merged)
++    complete_keys = {
++        row["calibration_key"] for row in aggregate_rows if row["status"] != "incomplete"
++    }
++    matrix_complete = (
++        complete_keys == expected_keys
++        and set(merged["stimuli"]) == set(EXPECTED_LANGUAGES)
++        and not merged["stimulus_failures"]
++        and not merged["failures"]
++    )
++    if not matrix_complete and not allow_partial:
++        missing = sorted(expected_keys - complete_keys)
++        unavailable = sorted(set(EXPECTED_LANGUAGES) - set(merged["stimuli"]))
++        raise ValueError(
++            "incomplete calibration matrix requires --allow-partial; "
++            f"missing identities={len(missing)}, unavailable languages={unavailable}"
++        )
++
++    reviewed = _review_metadata(review, report_hashes)
++    aggregate_by_key = {row["calibration_key"]: row for row in aggregate_rows}
++    unknown_reviews = set(reviewed["decisions"]) - expected_keys
++    if unknown_reviews:
++        raise ValueError(
++            f"review manifest contains unknown calibration keys: {sorted(unknown_reviews)}"
++        )
++    voices: dict[str, dict[str, Any]] = {}
++    counts = {"eligible": 0, "high_variability": 0, "incomplete": 0, "reviewed": 0, "promoted": 0}
++    for key, aggregate in aggregate_by_key.items():
++        status = str(aggregate["status"])
++        counts[status] += 1
++        decision = reviewed["decisions"].get(key)
++        if decision is None:
++            continue
++        counts["reviewed"] += 1
++        if decision["decision"] != "approve":
++            continue
++        if status != "eligible":
++            raise ValueError(f"only eligible measurements may be approved: {key} ({status})")
++        voices[key] = {
++            "gain_db": float(aggregate["gain_db"]),
++            "measured_lufs": float(aggregate["median_lufs"]),
++            "reference_lufs": float(merged["policy"]["reference_lufs"]),
++            "mad_lu": float(aggregate["mad_lu"]),
++            "samples": int(aggregate["repeat_count"]),
++            "method": "bs1770",
++            "corpus_version": merged["corpus"],
++        }
++        counts["promoted"] += 1
++    if not voices:
++        raise ValueError("review manifest approves no eligible measurements")
++
++    catalog = {
++        "schema": 1,
++        "method": "bs1770",
++        "corpus": merged["corpus"],
++        "reference_lufs": float(merged["policy"]["reference_lufs"]),
++        "generated_with": dict(sorted(merged["generated_with"].items())),
++        "voices": dict(sorted(voices.items())),
++    }
++    review_record = {
++        "schema": 1,
++        **reviewed,
++        "matrix_complete": matrix_complete,
++        "catalog_voice_refs": merged["matrix"]["catalog_voice_refs"],
++        "languages": list(EXPECTED_LANGUAGES),
++        "reviewed_decisions": {
++            key: {
++                **decision,
++                "median_lufs": aggregate_by_key[key]["median_lufs"],
++                "mad_lu": aggregate_by_key[key]["mad_lu"],
++                "gain_db": aggregate_by_key[key]["gain_db"],
++            }
++            for key, decision in reviewed["decisions"].items()
++        },
++    }
++    return catalog, {**counts, "matrix_complete": matrix_complete, "review_record": review_record}
++
++
++def _write_json(path: Path, value: Mapping[str, Any], *, force: bool) -> None:
++    if path.exists() and not force:
++        raise SystemExit(f"output already exists: {path}; pass --force to replace it")
++    path.parent.mkdir(parents=True, exist_ok=True)
++    temporary = path.with_suffix(path.suffix + ".tmp")
++    temporary.write_text(
++        json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n",
++        encoding="utf-8",
++    )
++    temporary.replace(path)
++
++
++def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("reports", nargs="+", type=Path)
++    group = parser.add_mutually_exclusive_group(required=True)
++    group.add_argument("--review", type=Path)
++    group.add_argument("--review-template", action="store_true")
++    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
++    parser.add_argument("--allow-partial", action="store_true")
++    parser.add_argument("--force", action="store_true")
++    return parser.parse_args(argv)
++
++
++def main(argv: Sequence[str] | None = None) -> int:
++    args = parse_args(argv)
++    report_bytes = [path.read_bytes() for path in args.reports]
++    reports = [json.loads(raw, object_pairs_hook=_object_pairs) for raw in report_bytes]
++    if any(not isinstance(report, Mapping) for report in reports):
++        raise SystemExit("measurement reports must contain JSON objects")
++    report_hashes = [hashlib.sha256(raw).hexdigest() for raw in report_bytes]
++    if len(report_hashes) != len(set(report_hashes)):
++        raise SystemExit("duplicate measurement reports were supplied")
++    output = args.output.resolve()
++    if output == PRODUCTION_CATALOG.resolve():
++        raise SystemExit("promotion never writes directly to the packaged production catalog")
++    report_paths = {path.resolve() for path in args.reports}
++    if output in report_paths:
++        raise SystemExit("output must not overwrite an input measurement report")
++    if args.review is not None and args.review.resolve() in report_paths:
++        raise SystemExit("review manifest must not also be an input measurement report")
++
++    if args.review_template:
++        template = build_review_template(reports, report_hashes)
++        _write_json(output, template, force=args.force)
++        print(f"Review template: {output}")
++        return 0
++
++    review = _read_json(args.review)
++    if not isinstance(review, Mapping):
++        raise SystemExit("review manifest must contain a JSON object")
++    candidate, summary = build_candidate(
++        reports,
++        review,
++        report_hashes,
++        allow_partial=args.allow_partial,
++    )
++    review_path = output.with_suffix(output.suffix + ".review.json")
++    if review_path in report_paths or review_path == args.review.resolve():
++        raise SystemExit("review record must not overwrite an input report or review manifest")
++    if not args.force and (output.exists() or review_path.exists()):
++        raise SystemExit(
++            f"candidate or review output already exists; pass --force to replace: {output}"
++        )
++    _write_json(output, candidate, force=args.force)
++    _write_json(review_path, summary["review_record"], force=args.force)
++    for name in ("eligible", "high_variability", "incomplete", "reviewed", "promoted"):
++        print(f"{name.replace('_', ' ').title()}: {summary[name]}")
++    print(f"Full matrix: {summary['matrix_complete']}")
++    print(f"Candidate: {output}")
++    print(f"Review record: {review_path}")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/benchmarks/voice_level_benchmark.py b/benchmarks/voice_level_benchmark.py
+new file mode 100644
+index 0000000..7a96fa2
+--- /dev/null
++++ b/benchmarks/voice_level_benchmark.py
+@@ -0,0 +1,462 @@
++#!/usr/bin/env python3
++"""Measure prepared counting speech for static Supertonic voice calibration."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import math
++import statistics
++from collections import defaultdict
++from collections.abc import Mapping, Sequence
++from importlib.metadata import PackageNotFoundError, version
++from pathlib import Path
++from typing import Any
++
++from audiosig import measure_loudness
++from numeralform import render
++from spokenform import NumberPolicy, prepare_language
++
++from supertonicsynth import (
++    SUPPORTED_LANGUAGES,
++    UNKNOWN_LANGUAGE,
++    SupertonicRuntime,
++    SynthesisConfig,
++    VoiceLevelConfig,
++)
++from supertonicsynth.runtime import canonical_voice_ref
++from supertonicsynth.voice_level import VoiceCalibrationKey
++
++POLICY_PATH = Path(__file__).with_name("data") / "voice_level_policy.json"
++DEFAULT_OUTPUT = Path("benchmarks/output/voice_level_calibration/measurements.json")
++DEFAULT_STIMULI_OUTPUT = Path("benchmarks/output/voice_level_calibration/counting_stimuli.json")
++STIMULUS_SOURCE = ", ".join(str(number) for number in range(1, 11)) + "."
++EXPECTED_LANGUAGES = tuple(sorted(set(SUPPORTED_LANGUAGES) - {UNKNOWN_LANGUAGE}))
++
++
++class StimulusPreparationError(ValueError):
++    """Raised when a language has no supported counting-text preparation path."""
++
++
++def load_policy(path: Path = POLICY_PATH) -> dict[str, Any]:
++    policy = json.loads(path.read_text(encoding="utf-8"))
++    if (
++        not isinstance(policy, dict)
++        or isinstance(policy.get("schema"), bool)
++        or not isinstance(policy.get("schema"), int)
++        or policy["schema"] != 1
++    ):
++        raise ValueError("voice-level policy has an unsupported schema")
++    if not isinstance(policy.get("name"), str) or not policy["name"]:
++        raise ValueError("policy name must be a non-empty string")
++    repeats = policy.get("repeats")
++    if isinstance(repeats, bool) or not isinstance(repeats, int) or repeats < 2:
++        raise ValueError("policy repeats must be an integer of at least two")
++    seed = policy.get("seed")
++    if isinstance(seed, bool) or not isinstance(seed, int):
++        raise ValueError("policy seed must be an integer")
++    steps = policy.get("steps")
++    if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
++        raise ValueError("policy steps must be a positive integer")
++    for name in ("reference_lufs", "min_gain_db", "max_gain_db", "max_mad_lu"):
++        value = policy.get(name)
++        if (
++            isinstance(value, bool)
++            or not isinstance(value, (int, float))
++            or not math.isfinite(value)
++        ):
++            raise ValueError(f"policy {name} must be finite")
++    if policy["min_gain_db"] > policy["max_gain_db"] or policy["max_mad_lu"] < 0:
++        raise ValueError("voice-level policy limits are invalid")
++    return policy
++
++
++def prepare_counting_stimulus(language: str) -> dict[str, Any]:
++    if language not in EXPECTED_LANGUAGES:
++        raise StimulusPreparationError(
++            f"{language!r} is not a supported spoken Supertonic language"
++        )
++    try:
++        number_words = [render(number, locale=language) for number in range(1, 11)]
++        counting_text = ", ".join(number_words) + "."
++        prepared = prepare_language(
++            counting_text,
++            language=language,
++            number_policy=NumberPolicy.CALLER_MANAGED,
++        )
++    except Exception as error:
++        raise StimulusPreparationError(
++            f"could not prepare counting stimulus for {language!r}: {error}"
++        ) from error
++    expected_warning = f"[NUMBERS] caller-managed number categories for language {language!r}"
++    unexpected_warnings = tuple(
++        warning for warning in prepared.warnings if warning != expected_warning
++    )
++    if unexpected_warnings:
++        raise StimulusPreparationError(
++            f"Spokenform reported unsupported preparation for {language!r}: "
++            + "; ".join(unexpected_warnings)
++        )
++    if any(character.isdecimal() for character in prepared.spoken_text):
++        raise StimulusPreparationError(
++            f"counting stimulus for {language!r} still contains numeric digits"
++        )
++    return {
++        "source_text": STIMULUS_SOURCE,
++        "count_words": number_words,
++        "counting_text": counting_text,
++        "prepared_text": prepared.spoken_text,
++        "language": language,
++        "number_renderer": "numeralform",
++        "text_preparer": "spokenform",
++        "preparation_warnings": list(prepared.warnings),
++    }
++
++
++def prepare_stimuli(
++    languages: Sequence[str] = EXPECTED_LANGUAGES,
++) -> tuple[dict[str, dict[str, Any]], list[dict[str, str]]]:
++    stimuli: dict[str, dict[str, Any]] = {}
++    failures: list[dict[str, str]] = []
++    for language in languages:
++        try:
++            stimuli[language] = prepare_counting_stimulus(language)
++        except StimulusPreparationError as error:
++            failures.append(
++                {
++                    "language": language,
++                    "phase": "stimulus_preparation",
++                    "error_type": type(error).__name__,
++                    "error": str(error),
++                }
++            )
++    return stimuli, failures
++
++
++def build_stimulus_manifest(
++    languages: Sequence[str],
++    stimuli: Mapping[str, Mapping[str, Any]],
++    failures: Sequence[Mapping[str, str]],
++    *,
++    corpus: str,
++) -> dict[str, Any]:
++    return {
++        "schema": 1,
++        "corpus": corpus,
++        "generated_with": generated_with(),
++        "counting_source": {
++            "source_text": STIMULUS_SOURCE,
++            "number_range": [1, 10],
++            "number_renderer": "numeralform",
++            "text_preparer": "spokenform",
++        },
++        "supported_spoken_languages": list(EXPECTED_LANGUAGES),
++        "requested_languages": list(languages),
++        "unknown_language_excluded": UNKNOWN_LANGUAGE,
++        "stimuli": {language: dict(row) for language, row in sorted(stimuli.items())},
++        "failures": list(failures),
++        "complete": set(stimuli) == set(languages) and not failures,
++    }
++
++
++def generated_with() -> dict[str, str]:
++    names = ("supertonicsynth", "audiosig", "onnxvoice", "spokenform", "numeralform")
++    versions: dict[str, str] = {}
++    for name in names:
++        try:
++            versions[name] = version(name)
++        except PackageNotFoundError:
++            versions[name] = "unknown"
++    return versions
++
++
++def expected_keys(voice_refs: Sequence[str]) -> list[str]:
++    return sorted(
++        str(VoiceCalibrationKey(voice_ref, language))
++        for voice_ref in voice_refs
++        for language in EXPECTED_LANGUAGES
++    )
++
++
++def _finite_number(value: Any, name: str) -> float:
++    if isinstance(value, bool) or not isinstance(value, (int, float)):
++        raise ValueError(f"{name} must be a finite number")
++    result = float(value)
++    if not math.isfinite(result):
++        raise ValueError(f"{name} must be finite")
++    return result
++
++
++def aggregate_measurements(
++    keys: Sequence[str],
++    measurements: Sequence[Mapping[str, Any]],
++    policy: Mapping[str, Any],
++) -> list[dict[str, Any]]:
++    groups: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
++    seen_repeats: set[tuple[str, int]] = set()
++    for measurement in measurements:
++        key = str(measurement["calibration_key"])
++        repeat = measurement["repeat"]
++        if isinstance(repeat, bool) or not isinstance(repeat, int) or repeat < 0:
++            raise ValueError(f"measurement repeat for {key} must be a non-negative integer")
++        identity = (key, repeat)
++        if identity in seen_repeats:
++            raise ValueError(f"duplicate measurement repeat {repeat} for {key}")
++        seen_repeats.add(identity)
++        _finite_number(measurement["integrated_lufs"], f"{key}.integrated_lufs")
++        groups[key].append(measurement)
++
++    aggregates = []
++    for key in sorted(keys):
++        rows = sorted(groups.get(key, ()), key=lambda row: int(row["repeat"]))
++        values = [float(row["integrated_lufs"]) for row in rows]
++        repeat_count = len(rows)
++        median_lufs = statistics.median(values) if values else None
++        mad_lu = statistics.median(abs(value - median_lufs) for value in values) if values else None
++        if repeat_count != int(policy["repeats"]):
++            status = "incomplete"
++            gain_db = None
++        elif mad_lu is not None and mad_lu > float(policy["max_mad_lu"]):
++            status = "high_variability"
++            gain_db = None
++        else:
++            status = "eligible"
++            requested_gain = float(policy["reference_lufs"]) - float(median_lufs)
++            gain_db = min(
++                float(policy["max_gain_db"]),
++                max(float(policy["min_gain_db"]), requested_gain),
++            )
++        voice_ref, language = key.rsplit("@", 1)
++        aggregates.append(
++            {
++                "voice_ref": voice_ref,
++                "language": language,
++                "calibration_key": key,
++                "median_lufs": median_lufs,
++                "mad_lu": mad_lu,
++                "repeat_count": repeat_count,
++                "status": status,
++                "gain_db": gain_db,
++            }
++        )
++    return aggregates
++
++
++def build_report(
++    *,
++    model: str,
++    catalog_voice_refs: Sequence[str],
++    selected_keys: Sequence[str],
++    stimuli: Mapping[str, Mapping[str, Any]],
++    stimulus_failures: Sequence[Mapping[str, str]],
++    measurements: Sequence[Mapping[str, Any]],
++    failures: Sequence[Mapping[str, Any]],
++    policy: Mapping[str, Any],
++) -> dict[str, Any]:
++    all_keys = expected_keys(catalog_voice_refs)
++    aggregates = aggregate_measurements(all_keys, measurements, policy)
++    fully_measured = sum(aggregate["repeat_count"] == policy["repeats"] for aggregate in aggregates)
++    failed_keys = len(all_keys) - fully_measured
++    return {
++        "schema": 1,
++        "corpus": str(policy["name"]),
++        "model": model,
++        "generated_with": generated_with(),
++        "policy": dict(policy),
++        "matrix": {
++            "catalog_voice_refs": sorted(catalog_voice_refs),
++            "languages": list(EXPECTED_LANGUAGES),
++            "expected_keys": all_keys,
++            "selected_keys": sorted(selected_keys),
++        },
++        "stimuli": {language: dict(row) for language, row in sorted(stimuli.items())},
++        "stimulus_failures": list(stimulus_failures),
++        "coverage": {
++            "expected": len(all_keys),
++            "selected": len(selected_keys),
++            "measured": fully_measured,
++            "failed": failed_keys,
++            "failure_count": len(failures) + len(stimulus_failures),
++            "complete": fully_measured == len(all_keys) and not failures and not stimulus_failures,
++        },
++        "measurements": list(measurements),
++        "failures": list(failures),
++        "aggregates": aggregates,
++    }
++
++
++def _write_report(path: Path, report: Mapping[str, Any]) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    temporary = path.with_suffix(path.suffix + ".tmp")
++    temporary.write_text(
++        json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
++        encoding="utf-8",
++    )
++    temporary.replace(path)
++
++
++def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--model", default="supertonic-3")
++    parser.add_argument("--voice", action="append", help="exact managed style name; repeatable")
++    parser.add_argument("--language", action="append", help="spoken language code; repeatable")
++    parser.add_argument("--cache-dir", type=Path)
++    parser.add_argument("--offline", action="store_true")
++    parser.add_argument("--refresh-catalog", action="store_true")
++    exclusive = parser.add_mutually_exclusive_group()
++    exclusive.add_argument("--list-only", action="store_true")
++    exclusive.add_argument("--prepare-only", action="store_true")
++    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
++    parser.add_argument("--stimuli-output", type=Path, default=DEFAULT_STIMULI_OUTPUT)
++    return parser.parse_args(argv)
++
++
++def main(argv: Sequence[str] | None = None) -> int:
++    args = parse_args(argv)
++    policy = load_policy()
++    languages = tuple(args.language) if args.language else EXPECTED_LANGUAGES
++    unsupported = set(languages) - set(EXPECTED_LANGUAGES)
++    if unsupported:
++        raise SystemExit(f"unsupported calibration language(s): {sorted(unsupported)}")
++    if len(set(languages)) != len(languages):
++        raise SystemExit("language filters must not contain duplicates")
++    if args.prepare_only and args.voice:
++        raise SystemExit("--voice cannot be combined with --prepare-only")
++    if args.prepare_only:
++        stimuli, stimulus_failures = prepare_stimuli(languages)
++        manifest = build_stimulus_manifest(
++            languages,
++            stimuli,
++            stimulus_failures,
++            corpus=str(policy["name"]),
++        )
++        _write_report(args.stimuli_output, manifest)
++        print(f"Prepared stimuli: {len(stimuli)}")
++        print(f"Preparation failures: {len(stimulus_failures)}")
++        print(f"Stimulus manifest: {args.stimuli_output}")
++        return 0 if manifest["complete"] else 1
++
++    with SupertonicRuntime.from_pretrained(
++        args.model,
++        cache_dir=args.cache_dir,
++        offline=args.offline,
++        refresh_catalog=args.refresh_catalog,
++    ) as runtime:
++        catalog_voice_refs = {
++            name: canonical_voice_ref(runtime.bundle, name) for name in runtime.voice_names
++        }
++        if any(ref is None for ref in catalog_voice_refs.values()):
++            raise SystemExit(
++                "managed bundle contains a style without a canonical semantic voice ref"
++            )
++        all_voice_refs = [str(catalog_voice_refs[name]) for name in runtime.voice_names]
++        selected_voices = tuple(args.voice) if args.voice else runtime.voice_names
++        unknown_voices = set(selected_voices) - set(runtime.voice_names)
++        if unknown_voices:
++            raise SystemExit(f"unknown managed voice style(s): {sorted(unknown_voices)}")
++        if len(set(selected_voices)) != len(selected_voices):
++            raise SystemExit("voice filters must not contain duplicates")
++        if args.list_only:
++            for name in selected_voices:
++                voice_ref = str(catalog_voice_refs[name])
++                for language in languages:
++                    print(VoiceCalibrationKey(voice_ref, language))
++            return 0
++
++        stimuli, stimulus_failures = prepare_stimuli(languages)
++        selected_voice_refs = [str(catalog_voice_refs[name]) for name in selected_voices]
++        selected = {
++            str(VoiceCalibrationKey(voice_ref, language))
++            for voice_ref in selected_voice_refs
++            for language in languages
++        }
++        measurements: list[dict[str, Any]] = []
++        failures: list[dict[str, Any]] = []
++        config = SynthesisConfig(
++            steps=int(policy["steps"]),
++            seed=int(policy["seed"]),
++            normalize_audio=True,
++            output_gain=1.0,
++            voice_level=VoiceLevelConfig(mode="off"),
++        )
++        total = len(selected) * int(policy["repeats"])
++        completed = 0
++        stimulus_errors = {row["language"]: row for row in stimulus_failures}
++        for name in selected_voices:
++            voice_ref = str(catalog_voice_refs[name])
++            for language in languages:
++                key = str(VoiceCalibrationKey(voice_ref, language))
++                if language in stimulus_errors:
++                    for repeat in range(int(policy["repeats"])):
++                        completed += 1
++                        print(
++                            f"[{completed}/{total}] {key} repeat {repeat + 1} skipped: "
++                            "stimulus preparation failed",
++                            flush=True,
++                        )
++                    continue
++                text = str(stimuli[language]["prepared_text"])
++                for repeat in range(int(policy["repeats"])):
++                    completed += 1
++                    print(f"[{completed}/{total}] {key} repeat {repeat + 1}", flush=True)
++                    try:
++                        result = runtime.synthesize_text(
++                            text,
++                            voice=name,
++                            language=language,
++                            config=config,
++                            seed=int(policy["seed"]) + repeat,
++                        )
++                        loudness = measure_loudness(
++                            result.audio,
++                            sample_rate=result.sample_rate,
++                        )
++                        integrated_lufs = _finite_number(
++                            loudness.integrated_lufs,
++                            "integrated_lufs",
++                        )
++                        measurements.append(
++                            {
++                                "voice_ref": voice_ref,
++                                "language": language,
++                                "calibration_key": key,
++                                "repeat": repeat,
++                                "seed": int(policy["seed"]) + repeat,
++                                "sample_rate": result.sample_rate,
++                                "duration_seconds": result.duration,
++                                "integrated_lufs": integrated_lufs,
++                                "synthesis_hash": result.metadata["synthesis_hash"],
++                            }
++                        )
++                    except Exception as error:
++                        failures.append(
++                            {
++                                "voice_ref": voice_ref,
++                                "language": language,
++                                "calibration_key": key,
++                                "repeat": repeat,
++                                "phase": "synthesis_or_measurement",
++                                "error_type": type(error).__name__,
++                                "error": str(error),
++                            }
++                        )
++
++    report = build_report(
++        model=args.model,
++        catalog_voice_refs=all_voice_refs,
++        selected_keys=sorted(selected),
++        stimuli=stimuli,
++        stimulus_failures=stimulus_failures,
++        measurements=measurements,
++        failures=failures,
++        policy=policy,
++    )
++    _write_report(args.output, report)
++    print(f"Measurements: {len(measurements)}")
++    print(f"Failures: {len(failures) + len(stimulus_failures)}")
++    print(f"Report: {args.output}")
++    return 0 if report["coverage"]["complete"] else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/docs/architecture.md b/docs/architecture.md
+new file mode 100644
+index 0000000..7bcd70d
+--- /dev/null
++++ b/docs/architecture.md
+@@ -0,0 +1,47 @@
++# Architecture
++
++## Ownership
++
++SupertonicSynth owns text validation and normalization, language selection, voice-style loading, chunking, synthesis configuration, static voice-level calibration, output gain, result metadata, PCM/WAV conversion, and offline calibration tooling.
++
++OnnxVoice owns catalog retrieval, canonical bundle and semantic voice identity, managed installation, checksums and storage, ONNX Runtime sessions, providers, inference execution, and runtime diagnostics. Calibration remains engine-local.
++
++## Identity model
++
++A voice has one canonical OnnxVoice semantic ref, for example `supertonic:supertonic-3/F1`. Its backing asset ref is `supertonic:supertonic-3`. Synthesis language is an independent dimension, so calibration keys pair `(voice_ref, language)` and serialize as `supertonic:supertonic-3/F1@de`. The language suffix is not part of the voice ref.
++
++Managed installation identity comes from the canonical installed bundle ID, never from the caller's alias. A style string is eligible only when it names a style in the managed bundle. A local bundle or a caller-created `VoiceStyle` has no automatic calibration identity, even if its path or label resembles a packaged style.
++
++## Audio pipeline
++
++For each request, the runtime:
++
++1. runs model inference for each text chunk and validates each returned mono finite waveform;
++2. concatenates speech and requested inter-chunk silence;
++3. validates the completed float32 audio and optionally peak-normalizes it;
++4. constructs the managed semantic voice ref and language calibration key when trusted identity exists;
++5. selects one explicit gain, catalog gain, or unchanged result for the complete utterance;
++6. applies request `output_gain` and final safety clipping;
++7. returns the waveform and synthesis metadata.
++
++Normal synthesis never measures LUFS. Loudness measurement exists only in offline benchmark tooling. Static calibration uses `audiosig.apply_gain_db(..., clip=False)` so final clipping remains at the output boundary.
++
++## Gain controls
++
++`VoiceLevelConfig` selects `off` or `calibrated` mode and may contain an explicit `gain_db`. An explicit dB override has highest precedence and does not require a managed voice identity. Otherwise, calibrated mode looks up the `(voice_ref, language)` pair. Off mode, missing identity, and missing calibration use 0 dB.
++
++`normalize_audio` is deterministic peak normalization before calibration. `output_gain` is a separate finite non-negative linear gain after static calibration. These engine controls are not document or program mastering.
++
++## Calibration catalog
++
++The packaged catalog uses schema 1 and method `bs1770`. The loader rejects duplicate JSON fields, unknown fields, unsupported schema or method, malformed Supertonic semantic refs, invalid normalized language keys, duplicate normalized identities, booleans in numeric fields, non-finite values, and non-positive sample counts. It computes a deterministic SHA-256 revision over canonical JSON. Package resources are loaded with `importlib.resources`, not filesystem-layout assumptions.
++
++Only measured and reviewed values belong in production data. The benchmark renders counts 1 through 10 with `numeralform`, then prepares the language-specific words with `spokenform`. Reports retain exact stimuli, tool versions, voice refs, synthesis hashes, fixed repeat seeds, loudness measurements, and matrix coverage. Promotion merges compatible reports, rejects duplicate identity/repeat measurements, requires a source-hash-bound review manifest, and writes a separate candidate plus review record. It never writes production data. The current local numeralform and Spokenform checkouts do not support Croatian (`hr`), so full coverage is incomplete and the packaged catalog remains empty. The `na` unknown-language sentinel is intentionally excluded rather than mapped to English.
++
++## Reproducibility metadata
++
++Results include canonical `voice_ref` and `backing_ref`, the selected calibration key, source, gain, catalog revision, and reason. `synthesis_identity` records the engine version, canonical identity and source revision, language, effective synthesis controls, and calibration selection. `synthesis_hash` is SHA-256 over canonical JSON identity plus the exact source text. It is reproducibility metadata, not an authenticity signature.
++
++## Dependency boundary
++
++Development uses the locally adapted OnnxVoice semantic-ref API. The project will raise its OnnxVoice lower bound only to the first published release verified to contain that API. No unreleased version is recorded in package metadata.
+diff --git a/docs/troubleshooting.md b/docs/troubleshooting.md
+new file mode 100644
+index 0000000..09a3d31
+--- /dev/null
++++ b/docs/troubleshooting.md
+@@ -0,0 +1,33 @@
++# Troubleshooting
++
++## Calibration is off
++
++`VoiceLevelConfig` defaults to `mode="off"`, preserving opt-in catalog correction. Select `VoiceLevelConfig(mode="calibrated")` or pass `--voice-level calibrated` to request catalog lookup.
++
++## `missing_identity`
++
++Automatic calibration requires a managed OnnxVoice installation and a string style name present in that installation's catalog-backed style paths. A local directory, a locally opened bundle, or a caller-created `VoiceStyle` does not get a packaged gain by matching its name. Use an explicit `gain_db`/`--voice-gain-db` override when a deliberate request-specific correction is desired.
++
++## `missing_calibration`
++
++The voice has a stable managed identity, but no catalog entry matches the pair `(voice_ref, language)`. Check the metadata fields `voice_ref`, `language`, and `calibration_key`. The key suffix is a separate language dimension, for example `supertonic:supertonic-3/F1@de`; it is not a different voice ref. Missing entries leave the waveform unchanged.
++
++`na` is the unknown/default language sentinel, not a calibration language. It is not mapped to English.
++
++## Invalid calibration data
++
++A malformed catalog raises `CalibrationDataError`. The loader is intentionally strict. Check for duplicate JSON object keys, unknown fields, invalid or duplicate normalized keys, unsupported schema or method, non-finite numbers, boolean numeric values, and non-positive `samples`. Fix the source catalog instead of bypassing validation.
++
++## Unexpected level changes
++
++The processing order is peak normalization, one static calibration gain on the complete utterance, request `output_gain`, then final safety clipping. `normalize_audio` defaults to `True`; set it to `False` when preserving the model's pre-calibration peak is required. Static gain may temporarily exceed the normalized range because it uses `clip=False`; `finish_audio` performs final clipping.
++
++`output_gain` is a finite, non-negative linear multiplier. It is not the calibration dB value and is not final mastering. WAV/PCM16 conversion clips through the shared audio helpers.
++
++## Incomplete language benchmark
++
++The calibration benchmark prepares numbers 1 through 10 with `numeralform`, then runs the language-specific text through `spokenform`. In the current sibling checkouts, Croatian (`hr`) is missing from both locale registries. Its stimulus preparation fails explicitly, so the full voice/language matrix is incomplete and the packaged catalog remains empty. Do not map `hr` to another language or promote a partial report as full coverage. `na` is separately excluded as the unknown-language sentinel.
++
++## OnnxVoice dependency version
++
++The development checkout currently relies on a locally adapted OnnxVoice semantic voice-ref API. Do not guess a released dependency bound. Raise the project lower bound only after an OnnxVoice release containing that API is available and verified.
+diff --git a/examples/basic.py b/examples/basic.py
+index bbc7e8e..58999a7 100644
+--- a/examples/basic.py
++++ b/examples/basic.py
+@@ -1,8 +1,17 @@
+-from supertonicsynth import SupertonicRuntime
++from supertonicsynth import SupertonicRuntime, SynthesisConfig, VoiceLevelConfig
++
++config = SynthesisConfig(
++    voice_level=VoiceLevelConfig(mode="calibrated"),
++)
+
+ with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
+     result = tts.synthesize_text(
+-        "Welcome to SupertonicSynth.", voice="M1", language="en", seed=1234
++        "A prepared German sentence.",
++        voice="F1",
++        language="de",
++        config=config,
++        seed=1234,
+     )
+     result.write_wav("basic.wav")
+-    print(result.duration)
++    print(result.metadata["voice_ref"])
++    print(result.metadata["voice_level"]["calibration_key"])
+diff --git a/examples/multilingual.py b/examples/multilingual.py
+index c69c66c..7b72d7b 100644
+--- a/examples/multilingual.py
++++ b/examples/multilingual.py
+@@ -1,10 +1,19 @@
+-from supertonicsynth import SupertonicRuntime
++from supertonicsynth import SupertonicRuntime, SynthesisConfig, VoiceLevelConfig
+
+ examples = [
+-    ("en", "Hello from Supertonic."),
+-    ("de", "Hallo von Supertonic."),
+-    ("fr", "Bonjour de Supertonic."),
++    ("en", "A prepared English sentence."),
++    ("de", "Ein vorbereiteter deutscher Satz."),
++    ("fr", "Une phrase française préparée."),
+ ]
++config = SynthesisConfig(voice_level=VoiceLevelConfig(mode="calibrated"))
++
+ with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
+-    for lang, text in examples:
+-        tts.synthesize_text(text, voice="F1", language=lang).write_wav(f"example_{lang}.wav")
++    for language, text in examples:
++        result = tts.synthesize_text(
++            text,
++            voice="F1",
++            language=language,
++            config=config,
++        )
++        result.write_wav(f"example_{language}.wav")
++        print(result.metadata["voice_level"]["calibration_key"])
+diff --git a/pyproject.toml b/pyproject.toml
+index 66d204e..6fdca6e 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -12,7 +12,8 @@ license = {text = "Apache-2.0"}
+ authors = [{name = "SupertonicSynth contributors"}]
+ dependencies = [
+   "numpy>=1.23",
+-  "onnxvoice>=0.1.12,<0.2",
++  "audiosig>=0.1.4,<0.2",
++  "onnxvoice>=0.2.0,<0.3",
+ ]
+ keywords = ["tts", "text-to-speech", "supertonic", "onnx", "speech", "onnxruntime"]
+ classifiers = [
+@@ -56,7 +57,10 @@ where = ["."]
+ include = ["supertonicsynth*"]
+
+ [tool.setuptools.package-data]
+-supertonicsynth = ["py.typed"]
++supertonicsynth = [
++  "py.typed",
++  "data/*.json",
++]
+
+ [tool.setuptools_scm]
+ write_to = "supertonicsynth/_version.py"
+diff --git a/supertonicsynth/__init__.py b/supertonicsynth/__init__.py
+index 096ab6d..0d7c9b0 100644
+--- a/supertonicsynth/__init__.py
++++ b/supertonicsynth/__init__.py
+@@ -1,4 +1,4 @@
+-"""SupertonicSynth — Supertonic-3 synthesis backed by OnnxVoice."""
++"""SupertonicSynth, Supertonic-3 synthesis backed by OnnxVoice."""
+
+ try:
+     from ._version import __version__, __version_tuple__
+@@ -16,10 +16,38 @@ from .config import (
+     UNKNOWN_LANGUAGE,
+ )
+ from .convenience import synthesize
+-from .errors import *
++from .errors import (
++    AssetCacheError,
++    AssetDownloadError,
++    AssetError,
++    BundleNotFoundError,
++    CatalogUnavailableError,
++    ClosedRuntimeError,
++    InvalidLanguageError,
++    InvalidRequestError,
++    InvalidVoiceStyleError,
++    ModelInferenceError,
++    OfflineAssetError,
++    OptionalDependencyError,
++    RuntimeCapabilityError,
++    SessionCreationError,
++    SupertonicSynthError,
++)
+ from .runtime import SupertonicRuntime
+ from .style import VoiceStyle, load_voice_style
+ from .types import RuntimeDiagnostics, SynthesisConfig, SynthesisResult
++from .voice_level import (
++    CalibrationDataError,
++    VoiceCalibrationCatalog,
++    VoiceCalibrationKey,
++    VoiceLevelApplication,
++    VoiceLevelCalibration,
++    VoiceLevelConfig,
++    VoiceLevelMode,
++    apply_voice_level_calibration,
++    default_voice_calibration,
++    load_voice_calibration,
++)
+
+ __all__ = [
+     "AVAILABLE_LANGUAGES",
+@@ -38,4 +66,29 @@ __all__ = [
+     "__version_tuple__",
+     "load_voice_style",
+     "synthesize",
++    "CalibrationDataError",
++    "VoiceCalibrationCatalog",
++    "VoiceCalibrationKey",
++    "VoiceLevelApplication",
++    "VoiceLevelCalibration",
++    "VoiceLevelConfig",
++    "VoiceLevelMode",
++    "apply_voice_level_calibration",
++    "default_voice_calibration",
++    "load_voice_calibration",
++    "AssetCacheError",
++    "AssetDownloadError",
++    "AssetError",
++    "BundleNotFoundError",
++    "CatalogUnavailableError",
++    "ClosedRuntimeError",
++    "InvalidLanguageError",
++    "InvalidRequestError",
++    "InvalidVoiceStyleError",
++    "ModelInferenceError",
++    "OfflineAssetError",
++    "OptionalDependencyError",
++    "RuntimeCapabilityError",
++    "SessionCreationError",
++    "SupertonicSynthError",
+ ]
+diff --git a/supertonicsynth/__main__.py b/supertonicsynth/__main__.py
+index 79889b8..9523acb 100644
+--- a/supertonicsynth/__main__.py
++++ b/supertonicsynth/__main__.py
+@@ -1,8 +1,11 @@
+ from __future__ import annotations
++
+ import argparse
+ from pathlib import Path
++
+ from .runtime import SupertonicRuntime
+ from .types import SynthesisConfig
++from .voice_level import VoiceLevelConfig
+
+
+ def build_parser() -> argparse.ArgumentParser:
+@@ -17,6 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
+     synth.add_argument("--steps", type=int, default=5)
+     synth.add_argument("--speed", type=float, default=1.05)
+     synth.add_argument("--seed", type=int)
++    synth.add_argument("--voice-level", choices=("off", "calibrated"), default="off")
++    synth.add_argument("--voice-gain-db", type=float)
++    synth.add_argument("--output-gain", type=float, default=1.0)
++    synth.add_argument("--normalize-audio", action=argparse.BooleanOptionalAction, default=None)
+     voices = sub.add_parser("voices", help="list installed bundle voices")
+     voices.add_argument("--model", default="supertonic-3")
+     return parser
+@@ -29,7 +36,17 @@ def main(argv: list[str] | None = None) -> int:
+             for name in runtime.voice_names:
+                 print(name)
+             return 0
+-        config = SynthesisConfig(steps=args.steps, speed=args.speed, seed=args.seed)
++        config = SynthesisConfig(
++            steps=args.steps,
++            speed=args.speed,
++            seed=args.seed,
++            normalize_audio=(True if args.normalize_audio is None else args.normalize_audio),
++            output_gain=args.output_gain,
++            voice_level=VoiceLevelConfig(
++                mode=args.voice_level,
++                gain_db=args.voice_gain_db,
++            ),
++        )
+         result = runtime.synthesize_text(
+             args.text, voice=args.voice, language=args.language, config=config
+         )
+diff --git a/supertonicsynth/_onnxvoice.py b/supertonicsynth/_onnxvoice.py
+index 2e1edb1..ec79ab5 100644
+--- a/supertonicsynth/_onnxvoice.py
++++ b/supertonicsynth/_onnxvoice.py
+@@ -161,7 +161,7 @@ def open_local_bundle(
+     )
+     installation = getattr(runtime, "installation", None)
+     resolved = (
+-        installation_to_bundle_info(installation, ref=None)
++        installation_to_bundle_info(installation)
+         if installation is not None
+         else ResolvedSupertonicBundle(
+             ref=None,
+@@ -197,7 +197,7 @@ def install_pretrained_bundle(
+             normalized, refresh=refresh_catalog, force=force_download, progress=progress
+         ),
+     )
+-    return installation_to_bundle_info(installation, ref=normalized)
++    return installation_to_bundle_info(installation)
+
+
+ def open_installed_bundle(
+@@ -222,7 +222,7 @@ def open_installed_bundle(
+     )
+
+
+-def installation_to_bundle_info(installation: Any, *, ref: str | None) -> ResolvedSupertonicBundle:
++def installation_to_bundle_info(installation: Any) -> ResolvedSupertonicBundle:
+     if installation is None:
+         raise RuntimeCapabilityError("Supertonic installation is unavailable")
+     try:
+@@ -243,9 +243,13 @@ def installation_to_bundle_info(installation: Any, *, ref: str | None) -> Resolv
+         ):
+             styles[str(artifact.component)] = Path(artifact.path)
+     raw = dict(getattr(installation, "metadata", {}) or {})
++    bundle_id = getattr(installation, "id", None)
++    backing_ref = getattr(installation, "ref", None)
++    if not backing_ref and bundle_id:
++        backing_ref = f"{getattr(installation, 'system', 'supertonic')}:{bundle_id}"
+     return ResolvedSupertonicBundle(
+-        ref=ref or getattr(installation, "ref", None),
+-        bundle_id=getattr(installation, "id", None),
++        ref=backing_ref,
++        bundle_id=bundle_id,
+         config_path=config,
+         unicode_indexer_path=indexer,
+         model_paths=models,
+diff --git a/supertonicsynth/asset_manager.py b/supertonicsynth/asset_manager.py
+index 0836140..27442ac 100644
+--- a/supertonicsynth/asset_manager.py
++++ b/supertonicsynth/asset_manager.py
+@@ -1,7 +1,9 @@
+ from __future__ import annotations
++
+ import os
+ from pathlib import Path
+ from typing import Any
++
+ from ._onnxvoice import normalize_supertonic_ref
+ from .errors import OptionalDependencyError
+
+diff --git a/supertonicsynth/audio.py b/supertonicsynth/audio.py
+new file mode 100644
+index 0000000..20d9f3e
+--- /dev/null
++++ b/supertonicsynth/audio.py
+@@ -0,0 +1,76 @@
++from __future__ import annotations
++
++import wave
++from pathlib import Path
++from typing import BinaryIO
++
++import numpy as np
++
++from .errors import ModelInferenceError
++
++AUDIO_PEAK_EPSILON = 1e-8
++
++
++def _as_float32_1d(audio: np.ndarray, *, name: str = "audio") -> np.ndarray:
++    result = np.asarray(audio, dtype=np.float32)
++    if result.ndim != 1:
++        raise ModelInferenceError(f"{name} must be one-dimensional, got shape {result.shape}")
++    if not np.all(np.isfinite(result)):
++        raise ModelInferenceError(f"{name} contains non-finite samples")
++    return result
++
++
++def prepare_audio(audio: np.ndarray, *, normalize: bool) -> np.ndarray:
++    """Validate inference audio and optionally normalize its peak."""
++    result = _as_float32_1d(audio)
++    if normalize and result.size:
++        peak = float(np.max(np.abs(result)))
++        if peak >= AUDIO_PEAK_EPSILON:
++            result = result / peak
++        else:
++            result = np.zeros_like(result)
++    return result
++
++
++def finish_audio(audio: np.ndarray, *, output_gain: float) -> np.ndarray:
++    """Apply request-local output gain and clip to the engine's output range."""
++    result = _as_float32_1d(audio)
++    if (
++        isinstance(output_gain, bool)
++        or not isinstance(output_gain, (int, float))
++        or not np.isfinite(output_gain)
++        or output_gain < 0
++    ):
++        raise ModelInferenceError("output_gain must be a finite non-negative number")
++    if output_gain != 1.0:
++        result = result * np.float32(output_gain)
++    if not np.all(np.isfinite(result)):
++        raise ModelInferenceError("postprocessed audio contains non-finite samples")
++    return np.clip(result, -1.0, 1.0).astype(np.float32, copy=False)
++
++
++def float_to_int16(audio: np.ndarray) -> np.ndarray:
++    """Convert finite normalized audio to clipped signed 16-bit PCM."""
++    result = _as_float32_1d(audio)
++    return (np.clip(result, -1.0, 1.0) * 32767.0).astype(np.int16)
++
++
++def audio_to_int16_bytes(audio: np.ndarray) -> bytes:
++    return float_to_int16(audio).tobytes()
++
++
++def write_wav(
++    target: str | Path | BinaryIO,
++    audio: np.ndarray,
++    sample_rate: int,
++) -> None:
++    """Write mono 16-bit PCM WAV data to a path or binary file-like object."""
++    if isinstance(sample_rate, bool) or not isinstance(sample_rate, int) or sample_rate <= 0:
++        raise ValueError("sample_rate must be a positive integer")
++    pcm = float_to_int16(audio)
++    target_file = str(target) if isinstance(target, Path) else target
++    with wave.open(target_file, "wb") as handle:
++        handle.setnchannels(1)
++        handle.setsampwidth(2)
++        handle.setframerate(sample_rate)
++        handle.writeframes(pcm.tobytes())
+diff --git a/supertonicsynth/convenience.py b/supertonicsynth/convenience.py
+index 1d2bae5..98cc3d5 100644
+--- a/supertonicsynth/convenience.py
++++ b/supertonicsynth/convenience.py
+@@ -1,6 +1,8 @@
+ from __future__ import annotations
++
+ from pathlib import Path
+ from typing import Any
++
+ from .runtime import SupertonicRuntime
+ from .types import SynthesisConfig, SynthesisResult
+
+diff --git a/supertonicsynth/data/voice_level_calibration.json b/supertonicsynth/data/voice_level_calibration.json
+new file mode 100644
+index 0000000..4e360ca
+--- /dev/null
++++ b/supertonicsynth/data/voice_level_calibration.json
+@@ -0,0 +1,8 @@
++{
++  "schema": 1,
++  "method": "bs1770",
++  "corpus": "supertonicsynth-prepared-speech-v1",
++  "reference_lufs": -24.0,
++  "generated_with": {},
++  "voices": {}
++}
+diff --git a/supertonicsynth/runtime.py b/supertonicsynth/runtime.py
+index f0db5f1..8cccb04 100644
+--- a/supertonicsynth/runtime.py
++++ b/supertonicsynth/runtime.py
+@@ -1,26 +1,27 @@
+ from __future__ import annotations
+
++import hashlib
++import json
+ from collections.abc import Mapping, Sequence
+ from pathlib import Path
+ from typing import Any
+
+ import numpy as np
+
++from . import __version__
+ from ._onnxvoice import (
+     ResolvedSupertonicBundle,
+     install_pretrained_bundle,
+     open_installed_bundle,
+     open_local_bundle,
+ )
++from .audio import finish_audio, prepare_audio
+ from .config import (
+     AVAILABLE_LANGUAGES,
+     DEFAULT_LANGUAGE,
+     DEFAULT_MAX_CHUNK_LENGTH,
+     DEFAULT_MAX_CHUNK_LENGTH_KO,
+     DEFAULT_MODEL,
+-    DEFAULT_SILENCE_DURATION,
+-    DEFAULT_SPEED,
+-    DEFAULT_STEPS,
+     DEFAULT_VOICE,
+     MAX_TEXT_LENGTH,
+ )
+@@ -35,6 +36,49 @@ from .frontend import SupertonicFrontend
+ from .style import VoiceStyle, load_voice_style
+ from .text_split import chunk_text
+ from .types import RuntimeDiagnostics, SynthesisConfig, SynthesisResult
++from .voice_level import (
++    VoiceCalibrationKey,
++    VoiceLevelApplication,
++    VoiceLevelConfig,
++    apply_voice_level_calibration,
++)
++
++
++def _is_managed_bundle(bundle: ResolvedSupertonicBundle) -> bool:
++    installation = bundle.installation
++    return (
++        installation is not None
++        and bundle.metadata.get("managed") is not False
++        and bundle.metadata.get("external") is not True
++        and getattr(installation, "kind", None) != "external"
++    )
++
++
++def canonical_backing_ref(bundle: ResolvedSupertonicBundle) -> str | None:
++    if not _is_managed_bundle(bundle) or not bundle.bundle_id:
++        return None
++    return f"supertonic:{bundle.bundle_id}"
++
++
++def canonical_voice_ref(
++    bundle: ResolvedSupertonicBundle,
++    voice: str | VoiceStyle,
++) -> str | None:
++    backing_ref = canonical_backing_ref(bundle)
++    if not isinstance(voice, str) or backing_ref is None or voice not in bundle.style_paths:
++        return None
++    return f"{backing_ref}/{voice}"
++
++
++def _synthesis_hash(identity: Mapping[str, Any], source_text: str) -> str:
++    serialized = json.dumps(
++        identity,
++        sort_keys=True,
++        separators=(",", ":"),
++        ensure_ascii=False,
++        allow_nan=False,
++    ).encode("utf-8")
++    return hashlib.sha256(serialized + b"\0" + source_text.encode("utf-8")).hexdigest()
+
+
+ class SupertonicRuntime:
+@@ -45,6 +89,7 @@ class SupertonicRuntime:
+         self.bundle = bundle
+         self._owns_runtime = owns_runtime
+         self._closed = False
++        self._last_voice_level_application: VoiceLevelApplication | None = None
+         self.frontend = SupertonicFrontend(bundle.unicode_indexer_path)
+         self.sample_rate = int(bundle.sample_rate or 44_100)
+
+@@ -100,6 +145,10 @@ class SupertonicRuntime:
+     def voice_names(self) -> tuple[str, ...]:
+         return tuple(sorted(self.bundle.style_paths))
+
++    @property
++    def last_voice_level_application(self) -> VoiceLevelApplication | None:
++        return self._last_voice_level_application
++
+     def get_voice_style(self, voice: str = DEFAULT_VOICE) -> VoiceStyle:
+         try:
+             path = self.bundle.style_paths[voice]
+@@ -122,6 +171,9 @@ class SupertonicRuntime:
+         max_chunk_length: int | None = None,
+         silence_duration: float | None = None,
+         seed: int | None = None,
++        normalize_audio: bool | None = None,
++        output_gain: float | None = None,
++        voice_level: VoiceLevelConfig | None = None,
+     ) -> SynthesisResult:
+         if self._closed:
+             raise ClosedRuntimeError("runtime is closed")
+@@ -135,13 +187,16 @@ class SupertonicRuntime:
+         effective = SynthesisConfig(
+             steps=base.steps if steps is None else steps,
+             speed=base.speed if speed is None else speed,
+-            max_chunk_length=base.max_chunk_length
+-            if max_chunk_length is None
+-            else max_chunk_length,
+-            silence_duration=base.silence_duration
+-            if silence_duration is None
+-            else silence_duration,
++            max_chunk_length=(
++                base.max_chunk_length if max_chunk_length is None else max_chunk_length
++            ),
++            silence_duration=(
++                base.silence_duration if silence_duration is None else silence_duration
++            ),
+             seed=base.seed if seed is None else seed,
++            normalize_audio=(base.normalize_audio if normalize_audio is None else normalize_audio),
++            output_gain=base.output_gain if output_gain is None else output_gain,
++            voice_level=base.voice_level if voice_level is None else voice_level,
+         )
+         style = self.get_voice_style(voice) if isinstance(voice, str) else voice
+         limit = effective.max_chunk_length or (
+@@ -168,7 +223,7 @@ class SupertonicRuntime:
+                 if isinstance(exc, (ValueError, TypeError)):
+                     raise
+                 raise ModelInferenceError(str(exc)) from exc
+-            audio = np.asarray(getattr(result, "audio"), dtype=np.float32).squeeze()
++            audio = np.asarray(result.audio, dtype=np.float32).squeeze()
+             if audio.ndim != 1 or audio.size == 0 or not np.all(np.isfinite(audio)):
+                 raise ModelInferenceError("runtime returned invalid audio")
+             result_rate = int(getattr(result, "sample_rate", self.sample_rate))
+@@ -182,25 +237,76 @@ class SupertonicRuntime:
+                 int(round(effective.silence_duration * self.sample_rate)), dtype=np.float32
+             )
+             interleaved: list[np.ndarray] = []
+-            for index, audio in enumerate(audio_parts):
+-                interleaved.append(audio)
++            for index, part in enumerate(audio_parts):
++                interleaved.append(part)
+                 if index + 1 < len(audio_parts):
+                     interleaved.append(silence)
+             audio_parts = interleaved
+         audio = np.concatenate(audio_parts).astype(np.float32, copy=False)
++        audio = prepare_audio(audio, normalize=effective.normalize_audio)
++        backing_ref = canonical_backing_ref(self.bundle)
++        voice_ref = canonical_voice_ref(self.bundle, voice)
++        calibration_key = (
++            VoiceCalibrationKey(voice_ref, language) if voice_ref is not None else None
++        )
++        audio, application = apply_voice_level_calibration(
++            audio, effective.voice_level, calibration_key
++        )
++        audio = finish_audio(audio, output_gain=effective.output_gain)
++        self._last_voice_level_application = application
+         voice_name = style.name if isinstance(voice, VoiceStyle) else voice
++        application_key = application.calibration_key
++        voice_level_metadata = {
++            "mode": application.mode,
++            "applied": application.applied,
++            "gain_db": application.gain_db,
++            "source": application.source,
++            "calibration_key": str(application_key) if application_key else None,
++            "voice_ref": application_key.voice_ref if application_key else None,
++            "language": application_key.language if application_key else language,
++            "reason": application.reason,
++            "catalog_revision": application.catalog_revision,
++        }
++        synthesis_identity = {
++            "supertonicsynth_version": __version__,
++            "voice_ref": voice_ref,
++            "backing_ref": backing_ref,
++            "source_revision": self.bundle.source_revision,
++            "language": language,
++            "steps": effective.steps,
++            "speed": effective.speed,
++            "max_chunk_length": limit,
++            "silence_duration": effective.silence_duration,
++            "seed": effective.seed,
++            "normalize_audio": effective.normalize_audio,
++            "output_gain": effective.output_gain,
++            "voice_level": {
++                "mode": application.mode,
++                "source": application.source,
++                "gain_db": application.gain_db,
++                "calibration_key": str(application_key) if application_key else None,
++                "catalog_revision": application.catalog_revision,
++            },
++        }
+         return SynthesisResult(
+             audio=audio,
+             sample_rate=self.sample_rate,
+             duration=float(audio.size / self.sample_rate),
+             chunks=len(chunks),
+             metadata={
+-                "bundle": self.bundle.ref or self.bundle.bundle_id,
++                "bundle": backing_ref or self.bundle.ref or self.bundle.bundle_id,
+                 "voice": voice_name,
++                "voice_ref": voice_ref,
++                "backing_ref": backing_ref,
+                 "language": language,
+                 "steps": effective.steps,
+                 "speed": effective.speed,
+                 "seed": effective.seed,
++                "normalize_audio": effective.normalize_audio,
++                "output_gain": effective.output_gain,
++                "voice_level": voice_level_metadata,
++                "synthesis_identity": synthesis_identity,
++                "synthesis_hash": _synthesis_hash(synthesis_identity, text),
+             },
+         )
+
+diff --git a/supertonicsynth/text_split.py b/supertonicsynth/text_split.py
+index e268de0..871fc38 100644
+--- a/supertonicsynth/text_split.py
++++ b/supertonicsynth/text_split.py
+@@ -1,4 +1,5 @@
+ from __future__ import annotations
++
+ import re
+
+ _COMMON_ABBREVIATIONS_PATTERN = (
+diff --git a/supertonicsynth/types.py b/supertonicsynth/types.py
+index 0a891e2..0adcdef 100644
+--- a/supertonicsynth/types.py
++++ b/supertonicsynth/types.py
+@@ -1,14 +1,15 @@
+ from __future__ import annotations
+
+-import wave
++from collections.abc import Mapping
+ from dataclasses import dataclass, field
+ from pathlib import Path
+ from typing import Any
+-from collections.abc import Mapping
+
+ import numpy as np
+
++from .audio import float_to_int16, write_wav
+ from .config import MAX_SPEED, MAX_STEPS, MIN_SPEED, MIN_STEPS
++from .voice_level import VoiceLevelConfig
+
+
+ @dataclass(frozen=True, slots=True)
+@@ -18,6 +19,9 @@ class SynthesisConfig:
+     max_chunk_length: int | None = None
+     silence_duration: float = 0.3
+     seed: int | None = None
++    normalize_audio: bool = True
++    output_gain: float = 1.0
++    voice_level: VoiceLevelConfig = field(default_factory=VoiceLevelConfig)
+
+     def __post_init__(self) -> None:
+         if not MIN_STEPS <= self.steps <= MAX_STEPS:
+@@ -28,6 +32,17 @@ class SynthesisConfig:
+             raise ValueError("max_chunk_length must be at least 10")
+         if self.silence_duration < 0:
+             raise ValueError("silence_duration must be non-negative")
++        if not isinstance(self.normalize_audio, bool):
++            raise ValueError("normalize_audio must be a bool")
++        if (
++            isinstance(self.output_gain, bool)
++            or not isinstance(self.output_gain, (int, float))
++            or not np.isfinite(self.output_gain)
++            or self.output_gain < 0
++        ):
++            raise ValueError("output_gain must be a finite non-negative number")
++        if not isinstance(self.voice_level, VoiceLevelConfig):
++            raise ValueError("voice_level must be a VoiceLevelConfig")
+
+
+ @dataclass(frozen=True, slots=True)
+@@ -39,17 +54,12 @@ class SynthesisResult:
+     metadata: Mapping[str, Any] = field(default_factory=dict)
+
+     def pcm16(self) -> np.ndarray:
+-        audio = np.asarray(self.audio, dtype=np.float32).reshape(-1)
+-        return (np.clip(audio, -1.0, 1.0) * 32767.0).astype(np.int16)
++        return float_to_int16(self.audio)
+
+     def write_wav(self, path: str | Path) -> Path:
+         target = Path(path)
+         target.parent.mkdir(parents=True, exist_ok=True)
+-        with wave.open(str(target), "wb") as wav:
+-            wav.setnchannels(1)
+-            wav.setsampwidth(2)
+-            wav.setframerate(self.sample_rate)
+-            wav.writeframes(self.pcm16().tobytes())
++        write_wav(target, self.audio, self.sample_rate)
+         return target
+
+
+diff --git a/supertonicsynth/voice_level.py b/supertonicsynth/voice_level.py
+new file mode 100644
+index 0000000..9c22017
+--- /dev/null
++++ b/supertonicsynth/voice_level.py
+@@ -0,0 +1,364 @@
++from __future__ import annotations
++
++import hashlib
++import json
++import re
++from collections.abc import Mapping
++from dataclasses import dataclass
++from functools import lru_cache
++from importlib.resources import files
++from pathlib import Path
++from typing import Any, Literal
++
++import audiosig
++import numpy as np
++
++from .audio import prepare_audio
++
++_SUPPORTED_SCHEMA = 1
++_SUPPORTED_METHOD = "bs1770"
++_TOP_FIELDS = {"schema", "method", "corpus", "reference_lufs", "generated_with", "voices"}
++_RECORD_FIELDS = {
++    "gain_db",
++    "measured_lufs",
++    "reference_lufs",
++    "mad_lu",
++    "samples",
++    "method",
++    "corpus_version",
++}
++_SAFE_COMPONENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
++_LANGUAGE_TAG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
++
++VoiceLevelMode = Literal["off", "calibrated"]
++VoiceLevelSource = Literal["off", "override", "catalog", "missing_identity", "missing_calibration"]
++
++
++@dataclass(frozen=True, slots=True)
++class VoiceLevelConfig:
++    """Static engine-local gain calibration settings."""
++
++    mode: VoiceLevelMode = "off"
++    gain_db: float | None = None
++
++    def __post_init__(self) -> None:
++        if not isinstance(self.mode, str) or self.mode not in {"off", "calibrated"}:
++            raise ValueError("mode must be 'off' or 'calibrated'")
++        if self.gain_db is not None:
++            if isinstance(self.gain_db, bool) or not isinstance(self.gain_db, (int, float)):
++                raise ValueError("gain_db must be a finite number or None")
++            if not np.isfinite(self.gain_db):
++                raise ValueError("gain_db must be finite")
++
++
++class CalibrationDataError(ValueError):
++    """Raised when calibration data is malformed or unsafe."""
++
++
++def _validate_voice_ref(value: str) -> str:
++    if not isinstance(value, str) or not value or value != value.strip():
++        raise CalibrationDataError("voice_ref must be a non-empty normalized semantic ref")
++    if not value.startswith("supertonic:") or value.count(":") != 1:
++        raise CalibrationDataError("voice_ref must have supertonic:<bundle-id>/<voice-id> form")
++    bundle_and_voice = value.removeprefix("supertonic:")
++    if bundle_and_voice.count("/") != 1:
++        raise CalibrationDataError("voice_ref must contain exactly one child-voice separator")
++    bundle_id, voice_id = bundle_and_voice.split("/", 1)
++    if not _SAFE_COMPONENT.fullmatch(bundle_id) or not _SAFE_COMPONENT.fullmatch(voice_id):
++        raise CalibrationDataError("voice_ref contains an empty or unsafe bundle/style ID")
++    return value
++
++
++def _normalize_language(value: str) -> str:
++    if not isinstance(value, str):
++        raise CalibrationDataError("language must be a non-empty normalized language tag")
++    normalized = value.strip().lower()
++    if not normalized or not _LANGUAGE_TAG.fullmatch(normalized):
++        raise CalibrationDataError("language must be a non-empty normalized language tag")
++    return normalized
++
++
++@dataclass(frozen=True, slots=True, order=True)
++class VoiceCalibrationKey:
++    voice_ref: str
++    language: str
++
++    def __post_init__(self) -> None:
++        _validate_voice_ref(self.voice_ref)
++        object.__setattr__(self, "language", _normalize_language(self.language))
++
++    def __str__(self) -> str:
++        return f"{self.voice_ref}@{self.language}"
++
++    @classmethod
++    def parse(cls, value: str) -> VoiceCalibrationKey:
++        if not isinstance(value, str) or value.count("@") != 1:
++            raise CalibrationDataError("calibration key must have <voice-ref>@<language> form")
++        voice_ref, language = value.split("@", 1)
++        return cls(voice_ref=voice_ref, language=language)
++
++
++@dataclass(frozen=True, slots=True)
++class VoiceLevelCalibration:
++    gain_db: float
++    measured_lufs: float | None = None
++    reference_lufs: float | None = None
++    mad_lu: float | None = None
++    samples: int | None = None
++    method: str = _SUPPORTED_METHOD
++    corpus_version: str | None = None
++
++
++@dataclass(frozen=True, slots=True)
++class VoiceCalibrationCatalog:
++    schema: int
++    method: str
++    corpus: str
++    reference_lufs: float
++    generated_with: Mapping[str, str]
++    voices: Mapping[VoiceCalibrationKey, VoiceLevelCalibration]
++    revision: str | None = None
++
++
++@dataclass(frozen=True, slots=True)
++class VoiceLevelApplication:
++    applied: bool
++    gain_db: float
++    source: VoiceLevelSource
++    key: VoiceCalibrationKey | None
++    mode: VoiceLevelMode = "off"
++    catalog_revision: str | None = None
++    reason: str = ""
++
++    @property
++    def calibration_key(self) -> VoiceCalibrationKey | None:
++        return self.key
++
++
++def _finite(value: Any, name: str) -> float:
++    if isinstance(value, bool) or not isinstance(value, (int, float)):
++        raise CalibrationDataError(f"{name} must be a finite number")
++    converted = float(value)
++    if not np.isfinite(converted):
++        raise CalibrationDataError(f"{name} must be finite")
++    return converted
++
++
++def _optional_finite(value: Any, name: str) -> float | None:
++    return None if value is None else _finite(value, name)
++
++
++def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
++    result: dict[str, Any] = {}
++    for key, value in pairs:
++        if key in result:
++            raise CalibrationDataError(f"duplicate JSON object key: {key!r}")
++        result[key] = value
++    return result
++
++
++def _validate_record(key: VoiceCalibrationKey, raw: Any) -> VoiceLevelCalibration:
++    if not isinstance(raw, Mapping):
++        raise CalibrationDataError(f"record for {key} must be an object")
++    unknown = set(raw) - _RECORD_FIELDS
++    if unknown:
++        raise CalibrationDataError(f"record for {key} has unknown field(s): {sorted(unknown)}")
++    if "gain_db" not in raw:
++        raise CalibrationDataError(f"record for {key} is missing gain_db")
++    method = raw.get("method", _SUPPORTED_METHOD)
++    if method != _SUPPORTED_METHOD:
++        raise CalibrationDataError(f"record for {key} has unsupported method: {method!r}")
++    samples = raw.get("samples")
++    if samples is not None and (
++        isinstance(samples, bool) or not isinstance(samples, int) or samples <= 0
++    ):
++        raise CalibrationDataError(f"record for {key} samples must be a positive integer")
++    corpus_version = raw.get("corpus_version")
++    if corpus_version is not None and (not isinstance(corpus_version, str) or not corpus_version):
++        raise CalibrationDataError(f"record for {key} corpus_version must be a non-empty string")
++    return VoiceLevelCalibration(
++        gain_db=_finite(raw["gain_db"], f"{key}.gain_db"),
++        measured_lufs=_optional_finite(raw.get("measured_lufs"), f"{key}.measured_lufs"),
++        reference_lufs=_optional_finite(raw.get("reference_lufs"), f"{key}.reference_lufs"),
++        mad_lu=_optional_finite(raw.get("mad_lu"), f"{key}.mad_lu"),
++        samples=samples,
++        method=method,
++        corpus_version=corpus_version,
++    )
++
++
++def _canonical_catalog(
++    *,
++    corpus: str,
++    generated_with: Mapping[str, str],
++    reference_lufs: float,
++    voices: Mapping[VoiceCalibrationKey, VoiceLevelCalibration],
++) -> dict[str, Any]:
++    return {
++        "schema": _SUPPORTED_SCHEMA,
++        "method": _SUPPORTED_METHOD,
++        "corpus": corpus,
++        "reference_lufs": reference_lufs,
++        "generated_with": dict(sorted(generated_with.items())),
++        "voices": {
++            str(key): {
++                "gain_db": record.gain_db,
++                "measured_lufs": record.measured_lufs,
++                "reference_lufs": record.reference_lufs,
++                "mad_lu": record.mad_lu,
++                "samples": record.samples,
++                "method": record.method,
++                "corpus_version": record.corpus_version,
++            }
++            for key, record in sorted(voices.items(), key=lambda item: str(item[0]))
++        },
++    }
++
++
++def _validate_catalog(raw: Any) -> VoiceCalibrationCatalog:
++    if not isinstance(raw, Mapping):
++        raise CalibrationDataError("calibration catalog must be an object")
++    unknown = set(raw) - _TOP_FIELDS
++    if unknown:
++        raise CalibrationDataError(f"calibration catalog has unknown field(s): {sorted(unknown)}")
++    missing = _TOP_FIELDS - set(raw)
++    if missing:
++        raise CalibrationDataError(f"calibration catalog is missing field(s): {sorted(missing)}")
++    if isinstance(raw["schema"], bool) or not isinstance(raw["schema"], int):
++        raise CalibrationDataError("schema must be an integer")
++    if raw["schema"] != _SUPPORTED_SCHEMA:
++        raise CalibrationDataError(f"unsupported calibration schema: {raw['schema']!r}")
++    if raw["method"] != _SUPPORTED_METHOD:
++        raise CalibrationDataError(f"unsupported calibration method: {raw['method']!r}")
++    corpus = raw["corpus"]
++    if not isinstance(corpus, str) or not corpus:
++        raise CalibrationDataError("corpus must be a non-empty string")
++    generated_with = raw["generated_with"]
++    if not isinstance(generated_with, Mapping) or any(
++        not isinstance(key, str) or not key or not isinstance(value, str) or not value
++        for key, value in generated_with.items()
++    ):
++        raise CalibrationDataError("generated_with must be a non-empty-string mapping")
++    voices_raw = raw["voices"]
++    if not isinstance(voices_raw, Mapping):
++        raise CalibrationDataError("voices must be an object")
++    voices: dict[VoiceCalibrationKey, VoiceLevelCalibration] = {}
++    for raw_key, record in voices_raw.items():
++        key = VoiceCalibrationKey.parse(raw_key)
++        if key in voices:
++            raise CalibrationDataError(f"duplicate normalized calibration key: {key}")
++        voices[key] = _validate_record(key, record)
++    reference_lufs = _finite(raw["reference_lufs"], "reference_lufs")
++    canonical = _canonical_catalog(
++        corpus=corpus,
++        generated_with=generated_with,
++        reference_lufs=reference_lufs,
++        voices=voices,
++    )
++    serialized = json.dumps(
++        canonical,
++        sort_keys=True,
++        separators=(",", ":"),
++        ensure_ascii=False,
++        allow_nan=False,
++    ).encode("utf-8")
++    return VoiceCalibrationCatalog(
++        schema=_SUPPORTED_SCHEMA,
++        method=_SUPPORTED_METHOD,
++        corpus=corpus,
++        reference_lufs=reference_lufs,
++        generated_with=dict(sorted(generated_with.items())),
++        voices=dict(sorted(voices.items(), key=lambda item: str(item[0]))),
++        revision=hashlib.sha256(serialized).hexdigest(),
++    )
++
++
++def _load_json(handle: Any, source: Any) -> VoiceCalibrationCatalog:
++    try:
++        raw = json.load(handle, object_pairs_hook=_object_pairs)
++    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
++        raise CalibrationDataError(f"invalid calibration JSON: {source}") from exc
++    return _validate_catalog(raw)
++
++
++def load_voice_calibration(path: Path | str) -> VoiceCalibrationCatalog:
++    """Load and strictly validate a runtime calibration catalog."""
++    source = Path(path)
++    try:
++        with source.open("r", encoding="utf-8") as handle:
++            return _load_json(handle, source)
++    except UnicodeDecodeError as exc:
++        raise CalibrationDataError(f"invalid calibration JSON: {source}") from exc
++
++
++@lru_cache(maxsize=1)
++def default_voice_calibration() -> VoiceCalibrationCatalog:
++    resource = files("supertonicsynth").joinpath("data", "voice_level_calibration.json")
++    with resource.open("r", encoding="utf-8") as handle:
++        return _load_json(handle, resource)
++
++
++def apply_voice_level_calibration(
++    audio: np.ndarray,
++    config: VoiceLevelConfig,
++    key: VoiceCalibrationKey | None,
++    *,
++    catalog: VoiceCalibrationCatalog | None = None,
++) -> tuple[np.ndarray, VoiceLevelApplication]:
++    """Apply one deterministic static gain without measuring the waveform."""
++    result = prepare_audio(audio, normalize=False)
++    catalog_revision = None
++    if config.gain_db is not None:
++        gain = float(config.gain_db)
++        source: VoiceLevelSource = "override"
++    elif config.mode != "calibrated":
++        gain = 0.0
++        source = "off"
++    elif key is None:
++        gain = 0.0
++        source = "missing_identity"
++    else:
++        selected_catalog = catalog if catalog is not None else default_voice_calibration()
++        catalog_revision = selected_catalog.revision
++        selected = selected_catalog.voices.get(key)
++        if selected is None:
++            gain = 0.0
++            source = "missing_calibration"
++        else:
++            gain = selected.gain_db
++            source = "catalog"
++    if gain:
++        result = np.asarray(audiosig.apply_gain_db(result, gain, clip=False), dtype=np.float32)
++    else:
++        result = result.copy()
++    reasons = {
++        "off": "voice-level calibration is disabled",
++        "override": "an explicit gain_db override was selected",
++        "catalog": "a matching calibration was selected",
++        "missing_identity": "the voice has no stable managed semantic identity",
++        "missing_calibration": "no calibration entry matches this voice/language",
++    }
++    application = VoiceLevelApplication(
++        applied=bool(gain),
++        gain_db=gain,
++        source=source,
++        key=key,
++        mode=config.mode,
++        catalog_revision=catalog_revision,
++        reason=reasons[source],
++    )
++    return result, application
++
++
++__all__ = [
++    "CalibrationDataError",
++    "VoiceCalibrationCatalog",
++    "VoiceCalibrationKey",
++    "VoiceLevelApplication",
++    "VoiceLevelCalibration",
++    "VoiceLevelConfig",
++    "VoiceLevelMode",
++    "apply_voice_level_calibration",
++    "default_voice_calibration",
++    "load_voice_calibration",
++]
+diff --git a/tests/test_audio.py b/tests/test_audio.py
+new file mode 100644
+index 0000000..48b9407
+--- /dev/null
++++ b/tests/test_audio.py
+@@ -0,0 +1,91 @@
++import io
++import wave
++
++import numpy as np
++import pytest
++
++from supertonicsynth.audio import (
++    AUDIO_PEAK_EPSILON,
++    audio_to_int16_bytes,
++    finish_audio,
++    float_to_int16,
++    prepare_audio,
++    write_wav,
++)
++from supertonicsynth.errors import ModelInferenceError
++
++
++def test_prepare_audio_normalizes_peak_and_preserves_float32():
++    audio = np.array([0.2, -0.4], dtype=np.float64)
++
++    result = prepare_audio(audio, normalize=True)
++
++    assert result.dtype == np.float32
++    np.testing.assert_allclose(result, [0.5, -1.0])
++
++
++def test_prepare_audio_keeps_near_silence_safe():
++    audio = np.array([AUDIO_PEAK_EPSILON / 2, -AUDIO_PEAK_EPSILON / 2], dtype=np.float32)
++
++    result = prepare_audio(audio, normalize=True)
++
++    np.testing.assert_array_equal(result, np.zeros_like(audio))
++
++
++def test_prepare_audio_without_normalization_leaves_samples_unchanged():
++    audio = np.array([0.2, -0.4], dtype=np.float32)
++
++    result = prepare_audio(audio, normalize=False)
++
++    np.testing.assert_array_equal(result, audio)
++
++
++@pytest.mark.parametrize(
++    "audio",
++    [np.array([[0.1, 0.2]], dtype=np.float32), np.array([np.nan], dtype=np.float32)],
++)
++def test_prepare_audio_rejects_invalid_shape_or_non_finite_samples(audio):
++    with pytest.raises(ModelInferenceError):
++        prepare_audio(audio, normalize=False)
++
++
++def test_finish_audio_applies_gain_and_clips():
++    audio = np.array([0.2, -0.4], dtype=np.float32)
++
++    result = finish_audio(audio, output_gain=2.0)
++
++    np.testing.assert_array_equal(result, np.array([0.4, -0.8], dtype=np.float32))
++    clipped = finish_audio(np.array([0.8, -0.8], dtype=np.float32), output_gain=2.0)
++    np.testing.assert_array_equal(clipped, np.array([1.0, -1.0], dtype=np.float32))
++
++
++@pytest.mark.parametrize("gain", [True, -1.0, float("nan"), float("inf")])
++def test_finish_audio_rejects_invalid_output_gain(gain):
++    with pytest.raises(ModelInferenceError, match="output_gain"):
++        finish_audio(np.array([0.1], dtype=np.float32), output_gain=gain)
++
++
++def test_pcm16_conversion_clips_before_converting():
++    audio = np.array([-2.0, 0.0, 2.0], dtype=np.float32)
++
++    result = float_to_int16(audio)
++
++    np.testing.assert_array_equal(result, np.array([-32767, 0, 32767], dtype=np.int16))
++    assert audio_to_int16_bytes(audio) == result.tobytes()
++
++
++def test_write_wav_writes_mono_pcm16():
++    stream = io.BytesIO()
++    write_wav(stream, np.array([0.0, 0.5], dtype=np.float32), 22050)
++    stream.seek(0)
++
++    with wave.open(stream, "rb") as wav:
++        assert wav.getnchannels() == 1
++        assert wav.getsampwidth() == 2
++        assert wav.getframerate() == 22050
++        assert wav.getnframes() == 2
++
++
++def test_write_wav_rejects_invalid_sample_rate():
++    with pytest.raises(ValueError, match="sample_rate"):
++        write_wav(io.BytesIO(), np.array([0.0], dtype=np.float32), 0)
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+new file mode 100644
+index 0000000..2f83074
+--- /dev/null
++++ b/tests/test_cli.py
+@@ -0,0 +1,96 @@
++from types import SimpleNamespace
++
++import supertonicsynth
++import supertonicsynth.__main__ as cli
++from supertonicsynth.voice_level import VoiceLevelConfig
++
++
++def test_public_voice_level_exports():
++    names = (
++        "CalibrationDataError",
++        "VoiceCalibrationCatalog",
++        "VoiceCalibrationKey",
++        "VoiceLevelApplication",
++        "VoiceLevelCalibration",
++        "VoiceLevelConfig",
++        "VoiceLevelMode",
++        "apply_voice_level_calibration",
++        "default_voice_calibration",
++        "load_voice_calibration",
++    )
++
++    assert set(names) <= set(supertonicsynth.__all__)
++    assert all(hasattr(supertonicsynth, name) for name in names)
++
++
++def test_cli_parses_calibration_and_audio_controls():
++    args = cli.build_parser().parse_args(
++        [
++            "synthesize",
++            "prepared text",
++            "-o",
++            "output.wav",
++            "--voice-level",
++            "calibrated",
++            "--voice-gain-db",
++            "-2.5",
++            "--output-gain",
++            "0.75",
++            "--no-normalize-audio",
++        ]
++    )
++
++    assert args.voice_level == "calibrated"
++    assert args.voice_gain_db == -2.5
++    assert args.output_gain == 0.75
++    assert args.normalize_audio is False
++
++
++def test_cli_passes_postprocessing_controls_to_synthesis(monkeypatch, tmp_path):
++    class FakeRuntime:
++        def __init__(self):
++            self.request = None
++
++        def __enter__(self):
++            return self
++
++        def __exit__(self, *_):
++            return None
++
++        def synthesize_text(self, text, **kwargs):
++            self.request = (text, kwargs)
++            return SimpleNamespace(
++                duration=1.0,
++                sample_rate=22050,
++                write_wav=lambda path: None,
++            )
++
++    runtime = FakeRuntime()
++    monkeypatch.setattr(cli.SupertonicRuntime, "from_pretrained", lambda ref: runtime)
++    output = tmp_path / "out.wav"
++
++    assert (
++        cli.main(
++            [
++                "synthesize",
++                "prepared text",
++                "-o",
++                str(output),
++                "--voice-level",
++                "calibrated",
++                "--voice-gain-db",
++                "-2.5",
++                "--output-gain",
++                "0.75",
++                "--no-normalize-audio",
++            ]
++        )
++        == 0
++    )
++
++    text, request = runtime.request
++    assert text == "prepared text"
++    config = request["config"]
++    assert config.normalize_audio is False
++    assert config.output_gain == 0.75
++    assert config.voice_level == VoiceLevelConfig(mode="calibrated", gain_db=-2.5)
+diff --git a/tests/test_frontend.py b/tests/test_frontend.py
+index 8d4de68..cee7767 100644
+--- a/tests/test_frontend.py
++++ b/tests/test_frontend.py
+@@ -1,5 +1,7 @@
+ import json
++
+ import numpy as np
++
+ from supertonicsynth.frontend import SupertonicFrontend
+
+
+diff --git a/tests/test_promote_voice_calibration.py b/tests/test_promote_voice_calibration.py
+new file mode 100644
+index 0000000..4a6bc7b
+--- /dev/null
++++ b/tests/test_promote_voice_calibration.py
+@@ -0,0 +1,211 @@
++import hashlib
++import json
++
++import pytest
++
++from benchmarks.promote_voice_calibration import (
++    EXPECTED_LANGUAGES,
++    _merge_reports,
++    build_candidate,
++    build_review_template,
++)
++from benchmarks.promote_voice_calibration import main as promote_main
++from benchmarks.voice_level_benchmark import load_policy, prepare_counting_stimulus
++from supertonicsynth import load_voice_calibration
++from supertonicsynth.voice_level import VoiceCalibrationKey
++
++VOICE_REF = "supertonic:supertonic-3/F1"
++CALIBRATION_KEY = f"{VOICE_REF}@en"
++
++
++def _report(repeat, loudness):
++    policy = load_policy()
++    key = VoiceCalibrationKey(VOICE_REF, "en")
++    expected_keys = sorted(
++        str(VoiceCalibrationKey(VOICE_REF, language)) for language in EXPECTED_LANGUAGES
++    )
++    return {
++        "schema": 1,
++        "corpus": policy["name"],
++        "model": "supertonic-3",
++        "policy": policy,
++        "generated_with": {
++            "supertonicsynth": "test-version",
++            "audiosig": "test-version",
++            "onnxvoice": "test-version",
++            "spokenform": "test-version",
++            "numeralform": "test-version",
++        },
++        "matrix": {
++            "catalog_voice_refs": [VOICE_REF],
++            "languages": list(EXPECTED_LANGUAGES),
++            "expected_keys": expected_keys,
++            "selected_keys": [str(key)],
++        },
++        "stimuli": {"en": prepare_counting_stimulus("en")},
++        "stimulus_failures": [],
++        "coverage": {"complete": False},
++        "measurements": [
++            {
++                "voice_ref": VOICE_REF,
++                "language": "en",
++                "calibration_key": CALIBRATION_KEY,
++                "repeat": repeat,
++                "seed": policy["seed"] + repeat,
++                "sample_rate": 44100,
++                "duration_seconds": 4.2,
++                "integrated_lufs": loudness,
++                "synthesis_hash": hashlib.sha256(f"repeat-{repeat}".encode()).hexdigest(),
++            }
++        ],
++        "failures": [],
++    }
++
++
++def _report_hash(report):
++    return hashlib.sha256(
++        json.dumps(report, sort_keys=True, separators=(",", ":")).encode()
++    ).hexdigest()
++
++
++def _review(
++    reports, hashes, *, decision="approve", rationale="Reviewed measured report statistics."
++):
++    return {
++        "schema": 1,
++        "reviewer": "reviewer@example.test",
++        "reviewed_at": "2026-01-01T12:00:00Z",
++        "source_reports": sorted(hashes),
++        "decisions": {CALIBRATION_KEY: {"decision": decision, "rationale": rationale}},
++    }
++
++
++def test_multi_report_promotion_requires_measured_review_and_preserves_only_approved_rows():
++    reports = [_report(0, -16.0), _report(1, -16.2), _report(2, -15.8)]
++    hashes = [_report_hash(report) for report in reports]
++    review = _review(reports, hashes)
++
++    candidate, summary = build_candidate(reports, review, hashes, allow_partial=True)
++
++    assert list(candidate["voices"]) == [CALIBRATION_KEY]
++    assert candidate["voices"][CALIBRATION_KEY] == {
++        "gain_db": -8.0,
++        "measured_lufs": -16.0,
++        "reference_lufs": -24.0,
++        "mad_lu": pytest.approx(0.2),
++        "samples": 3,
++        "method": "bs1770",
++        "corpus_version": "supertonicsynth-counting-1-to-10-v1",
++    }
++    assert summary["matrix_complete"] is False
++    assert summary["promoted"] == 1
++    assert summary["review_record"]["reviewed_decisions"][CALIBRATION_KEY]["decision"] == "approve"
++
++
++def test_review_hashes_must_match_exact_measurement_reports():
++    reports = [_report(0, -16.0), _report(1, -16.0), _report(2, -16.0)]
++    hashes = [_report_hash(report) for report in reports]
++    review = _review(reports, ["0" * 64, *hashes[1:]])
++
++    with pytest.raises(ValueError, match="source_reports do not match"):
++        build_candidate(reports, review, hashes, allow_partial=True)
++
++
++def test_approval_requires_a_completed_non_placeholder_review_rationale():
++    reports = [_report(0, -16.0), _report(1, -16.0), _report(2, -16.0)]
++    hashes = [_report_hash(report) for report in reports]
++    review = _review(
++        reports,
++        hashes,
++        rationale="Review this measured result before approving it.",
++    )
++
++    with pytest.raises(ValueError, match="completed review rationale"):
++        build_candidate(reports, review, hashes, allow_partial=True)
++
++
++def test_high_variability_result_cannot_be_approved():
++    reports = [_report(0, -16.0), _report(1, -18.0), _report(2, -20.0)]
++    hashes = [_report_hash(report) for report in reports]
++    review = _review(reports, hashes)
++
++    with pytest.raises(ValueError, match="only eligible measurements"):
++        build_candidate(reports, review, hashes, allow_partial=True)
++
++
++def test_multi_report_merge_rejects_duplicate_repeat_measurements():
++    reports = [_report(0, -16.0), _report(0, -16.1)]
++
++    with pytest.raises(ValueError, match="duplicate measurement repeat"):
++        _merge_reports(reports)
++
++
++def test_review_template_is_bound_to_report_hashes_and_lists_only_eligible_results():
++    reports = [_report(0, -16.0), _report(1, -16.0), _report(2, -16.0)]
++    hashes = [_report_hash(report) for report in reports]
++
++    template = build_review_template(reports, hashes)
++
++    assert template["source_reports"] == sorted(hashes)
++    assert list(template["decisions"]) == [CALIBRATION_KEY]
++    assert template["decisions"][CALIBRATION_KEY]["status"] == "eligible"
++    assert template["decisions"][CALIBRATION_KEY]["decision"] == "exclude"
++
++
++def test_promotion_cli_writes_a_loader_compatible_reviewed_candidate(tmp_path):
++    reports = [_report(0, -16.0), _report(1, -16.2), _report(2, -15.8)]
++    report_paths = []
++    for index, report in enumerate(reports):
++        path = tmp_path / f"report-{index}.json"
++        path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++        report_paths.append(path)
++    review_path = tmp_path / "review.json"
++    candidate_path = tmp_path / "candidate.json"
++
++    assert (
++        promote_main(
++            [
++                *(str(path) for path in report_paths),
++                "--review-template",
++                "--output",
++                str(review_path),
++            ]
++        )
++        == 0
++    )
++    review = json.loads(review_path.read_text(encoding="utf-8"))
++    review["reviewer"] = "reviewer@example.test"
++    review["reviewed_at"] = "2026-01-01T12:00:00Z"
++    review["decisions"][CALIBRATION_KEY].update(
++        decision="approve",
++        rationale="Reviewed repeat measurements and verified the policy-derived gain.",
++    )
++    review_path.write_text(json.dumps(review, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++
++    assert (
++        promote_main(
++            [
++                *(str(path) for path in report_paths),
++                "--review",
++                str(review_path),
++                "--output",
++                str(candidate_path),
++                "--allow-partial",
++            ]
++        )
++        == 0
++    )
++    catalog = load_voice_calibration(candidate_path)
++    assert catalog.voices[VoiceCalibrationKey.parse(CALIBRATION_KEY)].gain_db == -8.0
++    assert candidate_path.with_suffix(".json.review.json").is_file()
++
++
++def test_promotion_rejects_unknown_language_sentinel():
++    reports = [_report(0, -16.0)]
++    row = reports[0]["measurements"][0]
++    row["language"] = "na"
++    row["calibration_key"] = f"{VOICE_REF}@na"
++    reports[0]["matrix"]["selected_keys"] = [f"{VOICE_REF}@na"]
++
++    with pytest.raises(ValueError, match="selected keys are invalid"):
++        _merge_reports(reports)
+diff --git a/tests/test_runtime_fake.py b/tests/test_runtime_fake.py
+index c177d77..edc9895 100644
+--- a/tests/test_runtime_fake.py
++++ b/tests/test_runtime_fake.py
+@@ -1,45 +1,303 @@
+ from types import SimpleNamespace
+-import json
++
+ import numpy as np
+-from supertonicsynth._onnxvoice import ResolvedSupertonicBundle
++
++import supertonicsynth.voice_level as voice_level_module
++from supertonicsynth._onnxvoice import (
++    ResolvedSupertonicBundle,
++    installation_to_bundle_info,
++)
+ from supertonicsynth.runtime import SupertonicRuntime
++from supertonicsynth.style import VoiceStyle
++from supertonicsynth.types import SynthesisConfig
++from supertonicsynth.voice_level import (
++    VoiceCalibrationCatalog,
++    VoiceCalibrationKey,
++    VoiceLevelConfig,
++)
+
+
+ class FakeRuntime:
+-    def __init__(self):
++    def __init__(self, audio=None):
+         self.calls = []
+         self.closed = False
++        self.audio = (
++            np.ones(100, dtype=np.float32) * 0.1
++            if audio is None
++            else np.asarray(audio, dtype=np.float32)
++        )
+
+     def infer(self, token_ids, **kwargs):
+         self.calls.append((token_ids, kwargs))
+-        return SimpleNamespace(audio=np.ones(100, dtype=np.float32) * 0.1, sample_rate=1000)
++        return SimpleNamespace(audio=self.audio, sample_rate=1000)
+
+     def close(self):
+         self.closed = True
+
+
+-def test_runtime_fake(tmp_path):
++def make_runtime(tmp_path, *, audio=None, style_names=("M1",), managed=False, local=False):
+     indexer = tmp_path / "unicode_indexer.json"
+-    indexer.write_text(json.dumps(list(range(128))))
++    indexer.write_text("[" + ",".join(str(i) for i in range(128)) + "]")
+     config = tmp_path / "tts.json"
+     config.write_text("{}")
+-    style = tmp_path / "M1.json"
+-    style.write_text(
+-        json.dumps(
+-            {
+-                "style_ttl": {"dims": [1, 2], "data": [[1, 2]]},
+-                "style_dp": {"dims": [1, 2], "data": [[3, 4]]},
+-            }
++    styles = {}
++    for name in style_names:
++        style = tmp_path / f"{name}.json"
++        style.write_text(
++            '{"style_ttl":{"dims":[1,2],"data":[[1,2]]},"style_dp":{"dims":[1,2],"data":[[3,4]]}}'
+         )
+-    )
++        styles[name] = style
++    installation = None
++    metadata = {}
++    if managed:
++        installation = SimpleNamespace(kind="bundle", metadata={"managed": True})
++        metadata = {"managed": True}
++    if local:
++        installation = SimpleNamespace(kind="external", metadata={"managed": False})
++        metadata = {"managed": False, "external": True}
+     bundle = ResolvedSupertonicBundle(
+-        None, "test", config, indexer, {}, {"M1": style}, 1000, None, {}
++        "supertonic:st3" if managed else None,
++        "supertonic-3",
++        config,
++        indexer,
++        {},
++        styles,
++        1000,
++        "source-revision",
++        metadata,
++        installation,
+     )
+-    fake = FakeRuntime()
+-    runtime = SupertonicRuntime(fake, bundle)
++    fake = FakeRuntime(audio)
++    return SupertonicRuntime(fake, bundle), fake, bundle
++
++
++def test_runtime_fake(tmp_path):
++    runtime, fake, _ = make_runtime(tmp_path)
+     result = runtime.synthesize_text("hello", voice="M1", language="en", seed=4)
+     assert result.sample_rate == 1000
+     assert result.audio.size == 100
+     assert fake.calls[0][1]["seed"] == 4
+     runtime.close()
+     assert fake.closed
++
++
++def test_managed_voice_identity_overrides_and_postprocessing(tmp_path):
++    raw = np.array([0.2, -0.4], dtype=np.float32)
++    runtime, _, bundle = make_runtime(tmp_path, audio=raw, style_names=("F1",), managed=True)
++    config = SynthesisConfig(
++        normalize_audio=True,
++        output_gain=1.0,
++        voice_level=VoiceLevelConfig(),
++    )
++
++    result = runtime.synthesize_text(
++        "count to one",
++        voice="F1",
++        language="de",
++        config=config,
++        normalize_audio=False,
++        output_gain=0.5,
++        voice_level=VoiceLevelConfig(mode="calibrated", gain_db=-6.0),
++    )
++
++    expected = raw * 10 ** (-6 / 20) * 0.5
++    np.testing.assert_allclose(result.audio, expected, rtol=1e-6)
++    assert result.audio.dtype == np.float32
++    assert result.metadata["bundle"] == "supertonic:supertonic-3"
++    assert result.metadata["voice_ref"] == "supertonic:supertonic-3/F1"
++    assert result.metadata["backing_ref"] == "supertonic:supertonic-3"
++    assert result.metadata["voice_level"] == {
++        "mode": "calibrated",
++        "applied": True,
++        "gain_db": -6.0,
++        "source": "override",
++        "calibration_key": "supertonic:supertonic-3/F1@de",
++        "voice_ref": "supertonic:supertonic-3/F1",
++        "language": "de",
++        "reason": "an explicit gain_db override was selected",
++        "catalog_revision": None,
++    }
++    assert runtime.last_voice_level_application is not None
++    assert runtime.last_voice_level_application.key == VoiceCalibrationKey(
++        "supertonic:supertonic-3/F1", "de"
++    )
++    assert config.normalize_audio is True
++    assert config.output_gain == 1.0
++    assert config.voice_level.mode == "off"
++    identity = result.metadata["synthesis_identity"]
++    assert identity["voice_ref"] == result.metadata["voice_ref"]
++    assert identity["backing_ref"] == result.metadata["backing_ref"]
++    assert identity["source_revision"] == "source-revision"
++    assert identity["voice_level"]["calibration_key"] == "supertonic:supertonic-3/F1@de"
++    assert len(result.metadata["synthesis_hash"]) == 64
++    assert bundle.ref == "supertonic:st3"
++
++
++def test_runtime_clips_after_static_gain_and_output_gain(tmp_path):
++    runtime, _, _ = make_runtime(
++        tmp_path,
++        audio=np.array([0.8, -0.8], dtype=np.float32),
++        style_names=("F1",),
++        managed=True,
++    )
++
++    result = runtime.synthesize_text(
++        "count to one",
++        voice="F1",
++        language="en",
++        config=SynthesisConfig(
++            normalize_audio=False,
++            output_gain=2.0,
++            voice_level=VoiceLevelConfig(mode="calibrated", gain_db=6.0),
++        ),
++    )
++
++    np.testing.assert_array_equal(result.audio, np.array([1.0, -1.0], dtype=np.float32))
++
++
++def test_unmanaged_and_custom_style_do_not_claim_catalog_identity(tmp_path):
++    audio = np.array([0.2, -0.4], dtype=np.float32)
++    runtime, _, _ = make_runtime(
++        tmp_path, audio=audio, style_names=("F1",), managed=False, local=True
++    )
++
++    local_result = runtime.synthesize_text(
++        "count to one",
++        voice="F1",
++        language="en",
++        config=SynthesisConfig(
++            normalize_audio=False,
++            voice_level=VoiceLevelConfig(mode="calibrated"),
++        ),
++    )
++    np.testing.assert_array_equal(local_result.audio, audio)
++    assert local_result.metadata["voice_ref"] is None
++    assert local_result.metadata["backing_ref"] is None
++    assert local_result.metadata["voice_level"]["source"] == "missing_identity"
++
++    custom = VoiceStyle(
++        ttl=np.array([[1.0, 2.0]], dtype=np.float32),
++        dp=np.array([[3.0, 4.0]], dtype=np.float32),
++        name="F1",
++    )
++    custom_result = runtime.synthesize_text(
++        "count to one",
++        voice=custom,
++        language="en",
++        normalize_audio=False,
++        voice_level=VoiceLevelConfig(mode="calibrated"),
++    )
++    assert custom_result.metadata["voice"] == "F1"
++    assert custom_result.metadata["voice_ref"] is None
++    assert custom_result.metadata["voice_level"]["source"] == "missing_identity"
++
++    override_result = runtime.synthesize_text(
++        "count to one",
++        voice=custom,
++        language="en",
++        normalize_audio=False,
++        voice_level=VoiceLevelConfig(mode="calibrated", gain_db=6.0),
++    )
++    np.testing.assert_allclose(override_result.audio, audio * 10 ** (6 / 20), rtol=1e-6)
++    assert override_result.metadata["voice_level"]["source"] == "override"
++
++
++def test_custom_style_name_never_claims_managed_calibration_identity(tmp_path):
++    runtime, _, _ = make_runtime(
++        tmp_path, audio=np.array([0.2, -0.4], dtype=np.float32), style_names=("F1",), managed=True
++    )
++    custom = VoiceStyle(
++        ttl=np.array([[1.0, 2.0]], dtype=np.float32),
++        dp=np.array([[3.0, 4.0]], dtype=np.float32),
++        name="F1",
++    )
++
++    result = runtime.synthesize_text(
++        "count to one",
++        voice=custom,
++        language="en",
++        normalize_audio=False,
++        voice_level=VoiceLevelConfig(mode="calibrated"),
++    )
++
++    assert result.metadata["voice_ref"] is None
++    assert result.metadata["voice_level"]["source"] == "missing_identity"
++    np.testing.assert_array_equal(result.audio, np.array([0.2, -0.4], dtype=np.float32))
++
++
++def test_synthesis_hash_changes_with_catalog_revision(tmp_path, monkeypatch):
++    runtime, _, _ = make_runtime(tmp_path, style_names=("F1",), managed=True)
++    first_catalog = VoiceCalibrationCatalog(1, "bs1770", "test", -24.0, {}, {}, revision="a" * 64)
++    second_catalog = VoiceCalibrationCatalog(1, "bs1770", "test", -24.0, {}, {}, revision="b" * 64)
++    monkeypatch.setattr(voice_level_module, "default_voice_calibration", lambda: first_catalog)
++    first = runtime.synthesize_text(
++        "count to one",
++        voice="F1",
++        language="de",
++        voice_level=VoiceLevelConfig(mode="calibrated"),
++    )
++    monkeypatch.setattr(voice_level_module, "default_voice_calibration", lambda: second_catalog)
++    second = runtime.synthesize_text(
++        "count to one",
++        voice="F1",
++        language="de",
++        voice_level=VoiceLevelConfig(mode="calibrated"),
++    )
++
++    assert first.metadata["voice_level"]["catalog_revision"] == "a" * 64
++    assert second.metadata["voice_level"]["catalog_revision"] == "b" * 64
++    assert first.metadata["synthesis_hash"] != second.metadata["synthesis_hash"]
++
++
++def test_synthesis_hash_includes_exact_source_text(tmp_path):
++    runtime, _, _ = make_runtime(tmp_path, style_names=("F1",), managed=True)
++    first = runtime.synthesize_text("count to one", voice="F1", language="en")
++    second = runtime.synthesize_text("count to one ", voice="F1", language="en")
++
++    assert first.metadata["synthesis_hash"] != second.metadata["synthesis_hash"]
++
++
++def test_installed_bundle_ref_uses_canonical_installation_identity(tmp_path):
++    indexer = tmp_path / "unicode_indexer.json"
++    config = tmp_path / "tts.json"
++    paths = {("config", None): config, ("unicode_indexer", None): indexer}
++    for component in (
++        "duration_predictor",
++        "text_encoder",
++        "vector_estimator",
++        "vocoder",
++    ):
++        paths[("model", component)] = tmp_path / f"{component}.onnx"
++
++    def artifact(role, component=None):
++        return SimpleNamespace(path=paths[(role, component)])
++
++    installation = SimpleNamespace(
++        id="supertonic-3",
++        system="supertonic",
++        ref="supertonic:supertonic-3",
++        kind="bundle",
++        artifacts=(),
++        metadata={"managed": True},
++        sample_rate=1000,
++        artifact=artifact,
++    )
++
++    resolved = installation_to_bundle_info(installation)
++
++    assert resolved.ref == "supertonic:supertonic-3"
++    assert resolved.bundle_id == "supertonic-3"
++
++
++def test_runtime_does_not_measure_loudness(tmp_path, monkeypatch):
++    import audiosig
++
++    def fail_measurement(*args, **kwargs):
++        raise AssertionError("runtime synthesis must not measure loudness")
++
++    monkeypatch.setattr(audiosig, "measure_loudness", fail_measurement)
++    runtime, _, _ = make_runtime(tmp_path)
++
++    result = runtime.synthesize_text("count to one", voice="M1", language="en")
++
++    assert result.audio.size == 100
+diff --git a/tests/test_style.py b/tests/test_style.py
+index 2c27028..4bd37af 100644
+--- a/tests/test_style.py
++++ b/tests/test_style.py
+@@ -1,5 +1,7 @@
+ import json
++
+ import numpy as np
++
+ from supertonicsynth.style import load_voice_style
+
+
+diff --git a/tests/test_types.py b/tests/test_types.py
+index d0e4ff3..650fce9 100644
+--- a/tests/test_types.py
++++ b/tests/test_types.py
+@@ -1,6 +1,8 @@
+ import numpy as np
+ import pytest
++
+ from supertonicsynth.types import SynthesisConfig, SynthesisResult
++from supertonicsynth.voice_level import VoiceLevelConfig
+
+
+ def test_config_validation():
+@@ -10,6 +12,27 @@ def test_config_validation():
+         SynthesisConfig(speed=3.0)
+
+
++@pytest.mark.parametrize("output_gain", [True, -1.0, float("nan"), float("inf")])
++def test_config_rejects_invalid_output_gain(output_gain):
++    with pytest.raises(ValueError, match="output_gain"):
++        SynthesisConfig(output_gain=output_gain)
++
++
++def test_config_validates_postprocessing_controls():
++    with pytest.raises(ValueError, match="normalize_audio"):
++        SynthesisConfig(normalize_audio=1)
++    with pytest.raises(ValueError, match="voice_level"):
++        SynthesisConfig(voice_level=object())
++    config = SynthesisConfig(
++        normalize_audio=False,
++        output_gain=0.5,
++        voice_level=VoiceLevelConfig(mode="calibrated", gain_db=-3.0),
++    )
++    assert config.normalize_audio is False
++    assert config.output_gain == 0.5
++    assert config.voice_level.gain_db == -3.0
++
++
+ def test_wav(tmp_path):
+     result = SynthesisResult(np.zeros(100, dtype=np.float32), 1000, 0.1, 1)
+     path = result.write_wav(tmp_path / "out.wav")
+diff --git a/tests/test_voice_level_benchmark.py b/tests/test_voice_level_benchmark.py
+new file mode 100644
+index 0000000..ecc7607
+--- /dev/null
++++ b/tests/test_voice_level_benchmark.py
+@@ -0,0 +1,181 @@
++import json
++import math
++
++import pytest
++
++import benchmarks.voice_level_benchmark as benchmark
++from benchmarks.voice_level_benchmark import (
++    EXPECTED_LANGUAGES,
++    aggregate_measurements,
++    build_report,
++    expected_keys,
++    load_policy,
++    prepare_counting_stimulus,
++    prepare_stimuli,
++)
++from supertonicsynth import SUPPORTED_LANGUAGES, UNKNOWN_LANGUAGE
++from supertonicsynth.voice_level import VoiceCalibrationKey
++
++
++def _measurement(key, repeat, loudness):
++    voice_ref, language = key.rsplit("@", 1)
++    return {
++        "voice_ref": voice_ref,
++        "language": language,
++        "calibration_key": key,
++        "repeat": repeat,
++        "integrated_lufs": loudness,
++    }
++
++
++def test_counting_stimulus_is_prepared_and_keeps_provenance():
++    first = prepare_counting_stimulus("en")
++    second = prepare_counting_stimulus("en")
++
++    assert first == second
++    assert first["source_text"] == "1, 2, 3, 4, 5, 6, 7, 8, 9, 10."
++    assert len(first["count_words"]) == 10
++    assert all(isinstance(word, str) and word for word in first["count_words"])
++    assert first["prepared_text"] == first["counting_text"]
++    assert first["number_renderer"] == "numeralform"
++    assert first["text_preparer"] == "spokenform"
++    assert first["preparation_warnings"] == [
++        "[NUMBERS] caller-managed number categories for language 'en'"
++    ]
++    assert not any(character.isdecimal() for character in first["prepared_text"])
++
++
++def test_prepare_only_writes_complete_language_provenance_without_opening_runtime(
++    monkeypatch, tmp_path
++):
++    output = tmp_path / "counting_stimuli.json"
++    monkeypatch.setattr(
++        benchmark.SupertonicRuntime,
++        "from_pretrained",
++        staticmethod(lambda *_args, **_kwargs: pytest.fail("runtime must not open")),
++    )
++
++    exit_code = benchmark.main(["--prepare-only", "--stimuli-output", str(output)])
++
++    manifest = json.loads(output.read_text(encoding="utf-8"))
++    assert exit_code == (0 if manifest["complete"] else 1)
++    assert manifest["requested_languages"] == list(EXPECTED_LANGUAGES)
++    assert manifest["supported_spoken_languages"] == list(EXPECTED_LANGUAGES)
++    assert manifest["unknown_language_excluded"] == UNKNOWN_LANGUAGE
++    assert set(manifest["stimuli"]) | {row["language"] for row in manifest["failures"]} == set(
++        EXPECTED_LANGUAGES
++    )
++    assert manifest["counting_source"]["number_range"] == [1, 10]
++
++
++def test_counting_stimuli_cover_every_preparable_language_without_english_fallback():
++    stimuli, failures = prepare_stimuli()
++
++    assert set(stimuli) | {row["language"] for row in failures} == set(EXPECTED_LANGUAGES)
++    assert set(EXPECTED_LANGUAGES) == set(SUPPORTED_LANGUAGES) - {UNKNOWN_LANGUAGE}
++    assert UNKNOWN_LANGUAGE not in stimuli
++    assert UNKNOWN_LANGUAGE not in {row["language"] for row in failures}
++    assert all(row["language"] != "en" for row in failures)
++    assert "hi" in stimuli
++    assert all(row["language"] == language for language, row in stimuli.items())
++    assert all(
++        not any(character.isdecimal() for character in row["prepared_text"])
++        for row in stimuli.values()
++    )
++    assert all(row["phase"] == "stimulus_preparation" for row in failures)
++    assert all(row["language"] != "en" for row in failures)
++    assert "hr" in stimuli or "hr" in {row["language"] for row in failures}
++
++
++def test_calibration_matrix_excludes_unknown_language():
++    voice_refs = [f"supertonic:supertonic-3/{name}" for name in ("F1", "M1")]
++
++    keys = expected_keys(voice_refs)
++
++    assert len(keys) == 2 * len(SUPPORTED_LANGUAGES)
++    assert all(not key.endswith("@na") for key in keys)
++    assert VoiceCalibrationKey("supertonic:supertonic-3/F1", "de") in {
++        VoiceCalibrationKey.parse(key) for key in keys
++    }
++
++
++def test_aggregate_measurements_computes_eligible_high_variability_and_incomplete():
++    policy = load_policy()
++    eligible_key = "supertonic:supertonic-3/F1@en"
++    variable_key = "supertonic:supertonic-3/F1@de"
++    incomplete_key = "supertonic:supertonic-3/F1@fr"
++    measurements = [
++        _measurement(eligible_key, 0, -16.0),
++        _measurement(eligible_key, 1, -16.2),
++        _measurement(eligible_key, 2, -15.8),
++        _measurement(variable_key, 0, -16.0),
++        _measurement(variable_key, 1, -18.0),
++        _measurement(variable_key, 2, -20.0),
++        _measurement(incomplete_key, 0, -19.0),
++    ]
++
++    rows = {
++        row["calibration_key"]: row
++        for row in aggregate_measurements(
++            [eligible_key, variable_key, incomplete_key], measurements, policy
++        )
++    }
++
++    assert rows[eligible_key]["status"] == "eligible"
++    assert rows[eligible_key]["median_lufs"] == -16.0
++    assert rows[eligible_key]["mad_lu"] == pytest.approx(0.2)
++    assert rows[eligible_key]["gain_db"] == -8.0
++    assert rows[variable_key]["status"] == "high_variability"
++    assert rows[variable_key]["gain_db"] is None
++    assert rows[incomplete_key]["status"] == "incomplete"
++    assert rows[incomplete_key]["gain_db"] is None
++
++
++def test_aggregate_rejects_duplicate_or_non_finite_measurements():
++    policy = load_policy()
++    key = "supertonic:supertonic-3/F1@en"
++
++    with pytest.raises(ValueError, match="duplicate measurement repeat"):
++        aggregate_measurements(
++            [key], [_measurement(key, 0, -16.0), _measurement(key, 0, -16.0)], policy
++        )
++
++    with pytest.raises(ValueError, match="finite"):
++        aggregate_measurements([key], [_measurement(key, 0, math.nan)], policy)
++
++
++def test_report_retains_expected_full_matrix_and_measurement_provenance():
++    policy = load_policy()
++    voice_refs = ["supertonic:supertonic-3/F1"]
++    key = f"{voice_refs[0]}@en"
++    stimulus = prepare_counting_stimulus("en")
++    measurements = [
++        {
++            **_measurement(key, repeat, -16.0),
++            "seed": int(policy["seed"]) + repeat,
++            "sample_rate": 44100,
++            "duration_seconds": 4.2,
++            "synthesis_hash": f"hash-{repeat}",
++        }
++        for repeat in range(int(policy["repeats"]))
++    ]
++
++    report = build_report(
++        model="supertonic-3",
++        catalog_voice_refs=voice_refs,
++        selected_keys=[key],
++        stimuli={"en": stimulus},
++        stimulus_failures=[],
++        measurements=measurements,
++        failures=[],
++        policy=policy,
++    )
++
++    assert len(report["matrix"]["expected_keys"]) == len(EXPECTED_LANGUAGES)
++    assert report["coverage"]["expected"] == len(EXPECTED_LANGUAGES)
++    assert report["coverage"]["measured"] == 1
++    assert (
++        next(row for row in report["aggregates"] if row["calibration_key"] == key)["status"]
++        == "eligible"
++    )
++    assert report["stimuli"]["en"] == stimulus
+diff --git a/tests/test_voice_leveling.py b/tests/test_voice_leveling.py
+new file mode 100644
+index 0000000..56e77fd
+--- /dev/null
++++ b/tests/test_voice_leveling.py
+@@ -0,0 +1,243 @@
++import json
++
++import numpy as np
++import pytest
++
++from supertonicsynth.voice_level import (
++    CalibrationDataError,
++    VoiceCalibrationKey,
++    VoiceLevelConfig,
++    apply_voice_level_calibration,
++    default_voice_calibration,
++    load_voice_calibration,
++)
++
++VOICE_REF = "supertonic:supertonic-3/F1"
++CALIBRATION_KEY = f"{VOICE_REF}@de"
++
++
++def catalog_payload(voices=None):
++    return {
++        "schema": 1,
++        "method": "bs1770",
++        "corpus": "test-corpus-v1",
++        "reference_lufs": -24.0,
++        "generated_with": {"audiosig": "test"},
++        "voices": voices or {},
++    }
++
++
++def write_catalog(path, payload):
++    path.write_text(json.dumps(payload), encoding="utf-8")
++    return path
++
++
++def test_key_uses_semantic_voice_ref_and_normalizes_language():
++    key = VoiceCalibrationKey(VOICE_REF, " DE ")
++
++    assert key.language == "de"
++    assert str(key) == CALIBRATION_KEY
++    assert VoiceCalibrationKey.parse(f"{VOICE_REF}@EN") == VoiceCalibrationKey(
++        "supertonic:supertonic-3/F1", "en"
++    )
++
++
++@pytest.mark.parametrize(
++    "value",
++    [
++        "supertonic:supertonic-3:F1@en",
++        "supertonic:supertonic-3/@en",
++        "supertonic:supertonic-3/F1@",
++        "supertonic:supertonic-3/F1@en@de",
++        "supertonic:../bundle/F1@en",
++        "supertonic:supertonic-3/F1/other@en",
++    ],
++)
++def test_key_rejects_malformed_semantic_refs(value):
++    with pytest.raises(CalibrationDataError):
++        VoiceCalibrationKey.parse(value)
++
++
++@pytest.mark.parametrize("language", ["", "   ", "de @en", "de_de"])
++def test_key_rejects_empty_or_malformed_language(language):
++    with pytest.raises(CalibrationDataError):
++        VoiceCalibrationKey(VOICE_REF, language)
++
++
++def test_loader_parses_records_and_computes_canonical_revision(tmp_path):
++    payload = catalog_payload(
++        {
++            CALIBRATION_KEY: {
++                "gain_db": -2.5,
++                "measured_lufs": -21.5,
++                "reference_lufs": -24.0,
++                "mad_lu": 0.1,
++                "samples": 3,
++                "method": "bs1770",
++                "corpus_version": "test-corpus-v1",
++            }
++        }
++    )
++    first = load_voice_calibration(write_catalog(tmp_path / "first.json", payload))
++    reordered = dict(reversed(list(payload.items())))
++    second = load_voice_calibration(write_catalog(tmp_path / "second.json", reordered))
++    key = VoiceCalibrationKey(VOICE_REF, "de")
++
++    assert first.revision is not None and len(first.revision) == 64
++    assert first.revision == second.revision
++    assert first.voices[key].gain_db == -2.5
++    assert first.voices[key].samples == 3
++
++
++@pytest.mark.parametrize(
++    "payload",
++    [
++        {"schema": 1},
++        {**catalog_payload(), "extra": True},
++        {**catalog_payload(), "schema": True},
++        {**catalog_payload(), "method": "other"},
++        {**catalog_payload(), "generated_with": {"audiosig": 1}},
++        {**catalog_payload(), "reference_lufs": float("nan")},
++    ],
++)
++def test_loader_rejects_invalid_top_level_fields_and_values(tmp_path, payload):
++    with pytest.raises(CalibrationDataError):
++        load_voice_calibration(write_catalog(tmp_path / "bad.json", payload))
++
++
++def test_loader_rejects_duplicate_json_fields(tmp_path):
++    path = tmp_path / "duplicate.json"
++    path.write_text('{"schema":1,"schema":1}', encoding="utf-8")
++
++    with pytest.raises(CalibrationDataError, match="duplicate JSON"):
++        load_voice_calibration(path)
++
++
++@pytest.mark.parametrize(
++    "record",
++    [
++        {"extra": 1, "gain_db": 0.0},
++        {"measured_lufs": -20.0},
++        {"gain_db": True},
++        {"gain_db": float("nan")},
++        {"gain_db": 0.0, "samples": True},
++        {"gain_db": 0.0, "samples": 0},
++        {"gain_db": 0.0, "method": "other"},
++        {"gain_db": 0.0, "corpus_version": 1},
++    ],
++)
++def test_loader_rejects_invalid_records(tmp_path, record):
++    payload = catalog_payload({CALIBRATION_KEY: record})
++
++    with pytest.raises(CalibrationDataError):
++        load_voice_calibration(write_catalog(tmp_path / "bad-record.json", payload))
++
++
++def test_loader_rejects_duplicate_normalized_calibration_identities(tmp_path):
++    payload = catalog_payload(
++        {
++            f"{VOICE_REF}@de": {"gain_db": 0.0},
++            f"{VOICE_REF}@DE": {"gain_db": 1.0},
++        }
++    )
++
++    with pytest.raises(CalibrationDataError, match="duplicate normalized"):
++        load_voice_calibration(write_catalog(tmp_path / "duplicate-normalized.json", payload))
++
++
++@pytest.mark.parametrize(
++    "kwargs",
++    [
++        {"mode": "invalid"},
++        {"gain_db": True},
++        {"gain_db": float("nan")},
++        {"gain_db": float("inf")},
++    ],
++)
++def test_voice_level_config_rejects_invalid_values(kwargs):
++    with pytest.raises(ValueError):
++        VoiceLevelConfig(**kwargs)
++
++
++def test_explicit_gain_overrides_catalog_and_does_not_require_identity(tmp_path):
++    catalog = load_voice_calibration(
++        write_catalog(
++            tmp_path / "catalog.json",
++            catalog_payload({CALIBRATION_KEY: {"gain_db": -6.0}}),
++        )
++    )
++    audio = np.array([0.25, -0.5], dtype=np.float32)
++
++    result, application = apply_voice_level_calibration(
++        audio,
++        VoiceLevelConfig(mode="calibrated", gain_db=6.0),
++        None,
++        catalog=catalog,
++    )
++
++    np.testing.assert_allclose(result, audio * 10 ** (6 / 20), rtol=1e-6)
++    assert application.source == "override"
++    assert application.key is None
++    assert application.catalog_revision is None
++
++
++def test_catalog_gain_uses_decibels_without_clipping(tmp_path):
++    catalog = load_voice_calibration(
++        write_catalog(
++            tmp_path / "catalog.json",
++            catalog_payload({CALIBRATION_KEY: {"gain_db": 6.0}}),
++        )
++    )
++    audio = np.array([0.8], dtype=np.float32)
++
++    result, application = apply_voice_level_calibration(
++        audio,
++        VoiceLevelConfig(mode="calibrated"),
++        VoiceCalibrationKey(VOICE_REF, "de"),
++        catalog=catalog,
++    )
++
++    np.testing.assert_allclose(result, audio * 10 ** (6 / 20), rtol=1e-6)
++    assert result[0] > 1.0
++    assert application.source == "catalog"
++    assert application.applied is True
++    assert application.catalog_revision == catalog.revision
++    assert application.calibration_key == VoiceCalibrationKey(VOICE_REF, "de")
++    assert application.reason == "a matching calibration was selected"
++
++
++def test_off_and_missing_identity_or_calibration_leave_audio_unchanged(tmp_path):
++    audio = np.array([0.25, -0.5], dtype=np.float32)
++    key = VoiceCalibrationKey(VOICE_REF, "de")
++    empty_catalog = load_voice_calibration(
++        write_catalog(tmp_path / "empty.json", catalog_payload())
++    )
++
++    off, application = apply_voice_level_calibration(audio, VoiceLevelConfig(), key)
++    np.testing.assert_array_equal(off, audio)
++    assert application.source == "off"
++    assert application.reason == "voice-level calibration is disabled"
++
++    missing_identity, application = apply_voice_level_calibration(
++        audio, VoiceLevelConfig(mode="calibrated"), None, catalog=empty_catalog
++    )
++    np.testing.assert_array_equal(missing_identity, audio)
++    assert application.source == "missing_identity"
++    assert application.reason == "the voice has no stable managed semantic identity"
++
++    missing_calibration, application = apply_voice_level_calibration(
++        audio, VoiceLevelConfig(mode="calibrated"), key, catalog=empty_catalog
++    )
++    np.testing.assert_array_equal(missing_calibration, audio)
++    assert application.source == "missing_calibration"
++    assert application.reason == "no calibration entry matches this voice/language"
++    assert application.catalog_revision == empty_catalog.revision
++
++
++def test_default_catalog_loads_from_packaged_resources():
++    catalog = default_voice_calibration()
++
++    assert catalog.schema == 1
++    assert catalog.method == "bs1770"
++    assert catalog.voices == {}
++    assert catalog.revision is not None and len(catalog.revision) == 64

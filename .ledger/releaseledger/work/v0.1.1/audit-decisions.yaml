@@ -1,0 +1,51 @@
+rows:
+  - sha: 1614c4cc1c0b49701be2f78a92de16516ad42573
+    inspected: true
+    inspected_paths:
+      - README.md
+      - benchmarks/README.md
+      - docs/troubleshooting.md
+      - supertonicsynth/data/voice_level_calibration.json
+      - tests/test_voice_leveling.py
+    observed_behavior:
+      "Expands supertonicsynth/data/voice_level_calibration.json from an
+      empty catalog to 252 reviewed bs1770 voice/language calibration records, updates the
+      catalog tests to assert the entry count, per-identity gain and variability policy, and
+      documents the partial coverage limits of the 310-key matrix."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false
+  - sha: 6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    inspected: true
+    inspected_paths:
+      - .github/workflows/python-publish.yml
+      - .github/workflows/tests.yml
+      - README.md
+      - docs/conf.py
+      - docs/index.md
+      - docs/make.py
+      - examples/multilingual.py
+      - examples/voices.py
+      - pyproject.toml
+      - supertonicsynth/__main__.py
+      - supertonicsynth/config.py
+      - supertonicsynth/runtime.py
+      - supertonicsynth/types.py
+      - tests/test_runtime_fake.py
+      - tests/test_types.py
+    observed_behavior:
+      "Adds integer, finiteness and seed range validation to SynthesisConfig
+      and rejects synthesis seeds that would overflow the 32-bit seed range across chunks;
+      raises the OnnxVoice extras to >=0.2.0,<0.3; modernizes license metadata to an SPDX
+      expression with bundled license files; adds a Sphinx docs extra and a docs index page;
+      clarifies that the voices command installs the selected bundle; and reworks the publish
+      and test workflows."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false

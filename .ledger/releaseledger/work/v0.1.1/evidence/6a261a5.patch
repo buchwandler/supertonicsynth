@@ -1,0 +1,611 @@
+ .github/workflows/python-publish.yml | 94 ++++++++++++++++++++++++++++++++++--
+ .github/workflows/tests.yml          | 11 +++++
+ CHANGELOG.md                         |  8 ---
+ README.md                            | 18 +++++--
+ docs/architecture.md                 |  2 +-
+ docs/conf.py                         | 12 ++---
+ docs/index.md                        |  8 +++
+ docs/make.py                         | 41 ++++++----------
+ docs/troubleshooting.md              |  2 +-
+ examples/multilingual.py             |  2 +-
+ examples/voices.py                   |  2 +
+ pyproject.toml                       | 16 +++---
+ supertonicsynth/__main__.py          |  6 ++-
+ supertonicsynth/config.py            |  1 +
+ supertonicsynth/runtime.py           |  5 ++
+ supertonicsynth/types.py             | 33 +++++++++++--
+ tests/test_runtime_fake.py           | 12 +++++
+ tests/test_types.py                  | 28 +++++++++++
+ 18 files changed, 235 insertions(+), 66 deletions(-)
+
+diff --git a/.github/workflows/python-publish.yml b/.github/workflows/python-publish.yml
+index 565b201..883fd29 100644
+--- a/.github/workflows/python-publish.yml
++++ b/.github/workflows/python-publish.yml
+@@ -4,9 +4,37 @@ on:
+     tags: ["v*"]
+ permissions:
+   contents: read
+-  id-token: write
+ jobs:
++  release-tests:
++    strategy:
++      fail-fast: false
++      matrix:
++        python-version: ["3.10", "3.11", "3.12", "3.13"]
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: ${{ matrix.python-version }}
++      - run: python -m pip install --upgrade pip
++      - run: python -m pip install -e ".[cpu,dev]"
++      - name: Resolve GPU extra metadata
++        run: python -m pip install --dry-run ".[gpu]"
++      - run: pytest
++      - run: ruff check .
++      - run: mypy
++  docs:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.12"
++      - run: python -m pip install -e ".[docs]"
++      - run: python docs/make.py html
++      - run: sphinx-build -W -b html docs docs/_build/html
+   build:
++    needs: [release-tests, docs]
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+@@ -15,9 +43,69 @@ jobs:
+       - uses: actions/setup-python@v5
+         with:
+           python-version: "3.12"
+-      - run: python -m pip install build
++      - run: python -m pip install --upgrade pip build twine
+       - run: python -m build
++      - run: python -m twine check dist/*
++      - name: Verify release wheel
++        run: |
++          python - <<'PY'
++          from email import message_from_bytes
++          from pathlib import Path
++          import os
++          from zipfile import ZipFile
++
++          wheels = list(Path("dist").glob("supertonicsynth-*.whl"))
++          assert len(wheels) == 1, f"expected one wheel, found {wheels}"
++          with ZipFile(wheels[0]) as wheel:
++              names = set(wheel.namelist())
++              metadata_path = next(
++                  name for name in names if name.endswith(".dist-info/METADATA")
++              )
++              metadata = message_from_bytes(wheel.read(metadata_path))
++              tag = os.environ["GITHUB_REF_NAME"]
++              assert tag.startswith("v"), tag
++              expected_version = tag[1:]
++              assert metadata["Version"] == expected_version, metadata["Version"]
++              required = {
++                  "supertonicsynth/data/voice_level_calibration.json",
++                  "supertonicsynth/py.typed",
++              }
++              assert required <= names, f"missing wheel files: {required - names}"
++              licenses = {
++                  Path(name).name
++                  for name in names
++                  if ".dist-info/licenses/" in name
++              }
++              required_licenses = {"LICENSE", "NOTICE", "SUPERTONIC-PY-MIT.txt"}
++              assert required_licenses <= licenses, (
++                  f"missing license files: {required_licenses - licenses}"
++              )
++          print(f"Verified wheel version {expected_version} and release contents")
++          PY
++      - name: Install wheel in a clean environment
++        run: |
++          python -m venv .release-venv
++          wheel="$(find dist -maxdepth 1 -name 'supertonicsynth-*.whl' -print -quit)"
++          .release-venv/bin/python -m pip install "${wheel}[cpu]"
++          EXPECTED_VERSION="${GITHUB_REF_NAME#v}" .release-venv/bin/python -c \
++            'import os, supertonicsynth; assert supertonicsynth.__version__ == os.environ["EXPECTED_VERSION"]'
++          .release-venv/bin/supertonicsynth --help
++      - uses: actions/upload-artifact@v4
++        with:
++          name: python-package-distributions
++          path: dist/*
++          if-no-files-found: error
++  publish:
++    needs: build
++    runs-on: ubuntu-latest
++    permissions:
++      contents: read
++      id-token: write
++    steps:
++      - uses: actions/download-artifact@v4
++        with:
++          name: python-package-distributions
++          path: dist/
+       - uses: pypa/gh-action-pypi-publish@v1.14.1
+         with:
+-          password: ${{ secrets.PYPI_API_TOKEN }}
+           attestations: false
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index b3b48dd..24ff1b1 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -16,3 +16,14 @@ jobs:
+       - run: python -m pip install -e ".[dev]"
+       - run: pytest
+       - run: ruff check .
++      - run: mypy
++  docs:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.12"
++      - run: python -m pip install -e ".[docs]"
++      - run: python docs/make.py html
++      - run: sphinx-build -W -b html docs docs/_build/html
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+deleted file mode 100644
+index 8298f62..0000000
+--- a/CHANGELOG.md
++++ /dev/null
+@@ -1,8 +0,0 @@
+-# Changelog
+-
+-## Unreleased
+-
+-- Add opt-in static voice calibration keyed by canonical OnnxVoice semantic voice ref and synthesis language, with strict catalog loading and request-level gain controls.
+-- Add shared finite-audio validation, peak normalization, clipping, PCM16/WAV conversion, calibration diagnostics, and reproducibility metadata.
+-- Add deterministic counting benchmarks, language-specific Spokenform/Numeralform stimuli, and review-gated multi-report candidate promotion. Populate the partial packaged Supertonic-3 BS.1770 catalog from the counting-1-to-10 benchmark with 252 eligible voice/language calibrations; 48 high-variability identities, all 10 Croatian (`hr`) identities, and the `na` unknown-language sentinel remain uncalibrated. Missing entries remain unchanged at runtime (0 dB).
+-- Bootstrap Supertonic-3 frontend/runtime package around the staged OnnxVoice `supertonic` adapter and catalog.
+diff --git a/README.md b/README.md
+index 2b148e1..40f9045 100644
+--- a/README.md
++++ b/README.md
+@@ -10,7 +10,7 @@ pip install "supertonicsynth[cpu]"
+
+ The project uses dynamic VCS versioning through `setuptools_scm`. Model weights are not included in the wheel.
+
+-The current development checkout uses a locally adapted OnnxVoice semantic voice-ref API. The dependency lower bound will be updated only after the first compatible OnnxVoice release is available.
++SupertonicSynth 0.1.1 requires OnnxVoice >=0.2.0,<0.3. The 0.2.x line provides the Supertonic catalog, semantic voice refs, managed installation, local-open, and runtime APIs used by this package.
+
+ ## Python usage
+
+@@ -56,6 +56,14 @@ supertonicsynth synthesize \
+
+ Use `--voice-gain-db FLOAT` for an explicit static dB override. That override takes precedence over the catalog and works for local or custom styles. `--output-gain FLOAT` is a separate request-level linear gain. Final output is clipped to `[-1, 1]` for safety.
+
++### List voices
++
++```bash
++supertonicsynth voices --model supertonic-3
++```
++
++This opens the selected bundle and installs/downloads it if it is not available locally. It is not a metadata-only query.
++
+ ## Voice identity and language
+
+ OnnxVoice semantic voice refs are the canonical voice identity. A managed `F1` style from `supertonic-3` has the voice ref `supertonic:supertonic-3/F1`. Language remains a separate synthesis condition. Calibration therefore uses a pair such as `(supertonic:supertonic-3/F1, de)`, serialized as `supertonic:supertonic-3/F1@de`. The `@de` suffix belongs to the calibration key, not the voice ref.
+@@ -68,13 +76,13 @@ Calibration is an offline, reviewed static correction. The benchmark measures pr
+
+ `VoiceLevelConfig(mode="off")` is the default. `mode="calibrated"` opts into the packaged catalog. `normalize_audio` is a separate deterministic peak-normalization control. `output_gain` is a separate linear user-requested gain. Neither feature performs final program mastering, which remains an external responsibility.
+
+-The package ships 252 reviewed, statistically eligible voice/language calibrations from the Supertonic-3 counting benchmark. Coverage is partial, not the full 310-key matrix: 48 completed but high-variability identities and all 10 Croatian (`hr`) identities are intentionally absent because a Croatian counting stimulus could not be prepared. Missing entries remain unchanged at runtime (0 dB). The `na` unknown-language sentinel is excluded because it is not a spoken calibration language. See the [benchmark and promotion guide](benchmarks/README.md).
++The package ships 252 reviewed, statistically eligible voice/language calibrations from the Supertonic-3 counting benchmark. Coverage is partial, not the full 310-key matrix: 48 completed but high-variability identities and all 10 Croatian (`hr`) identities are intentionally absent because a Croatian counting stimulus could not be prepared. Missing entries remain unchanged at runtime (0 dB). The `na` unknown-language sentinel is excluded because it is not a spoken calibration language. See the [benchmark and promotion guide](https://github.com/buchwandler/supertonicsynth/blob/main/benchmarks/README.md).
+
+ ## Further documentation
+
+-- [Architecture](docs/architecture.md)
+-- [Troubleshooting](docs/troubleshooting.md)
+-- [Benchmark and promotion](benchmarks/README.md)
++- [Architecture](https://github.com/buchwandler/supertonicsynth/blob/main/docs/architecture.md)
++- [Troubleshooting](https://github.com/buchwandler/supertonicsynth/blob/main/docs/troubleshooting.md)
++- [Benchmark and promotion](https://github.com/buchwandler/supertonicsynth/blob/main/benchmarks/README.md)
+
+ ## Local bundle
+
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 2c5f4bd..ed622ef 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -44,4 +44,4 @@ Results include canonical `voice_ref` and `backing_ref`, the selected calibratio
+
+ ## Dependency boundary
+
+-Development uses the locally adapted OnnxVoice semantic-ref API. The project will raise its OnnxVoice lower bound only to the first published release verified to contain that API. No unreleased version is recorded in package metadata.
++SupertonicSynth requires OnnxVoice >=0.2.0,<0.3. The 0.2.x line provides the Supertonic catalog, semantic voice-ref, managed-installation, local-open, and runtime APIs used by this package.
+diff --git a/docs/conf.py b/docs/conf.py
+index 04ea62c..d9de286 100644
+--- a/docs/conf.py
++++ b/docs/conf.py
+@@ -1,14 +1,12 @@
+ # -- Path setup --------------------------------------------------------------
+
+-# If extensions (or modules to document with autodoc) are in another directory,
+-# add these directories to sys.path here. If the directory is relative to the
+-# documentation root, use os.path.abspath to make it absolute, like shown here.
+-#
+-import os
+ import sys
++from pathlib import Path
+
+-sys.path.insert(0, os.path.abspath(".."))
+-sys.path.insert(0, os.path.abspath("../supertonicsynth"))
++DOCS_DIR = Path(__file__).resolve().parent
++PROJECT_ROOT = DOCS_DIR.parent
++sys.path.insert(0, str(PROJECT_ROOT))
++sys.path.insert(0, str(PROJECT_ROOT / "supertonicsynth"))
+ # -- Project information -----------------------------------------------------
+ # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+
+diff --git a/docs/index.md b/docs/index.md
+new file mode 100644
+index 0000000..69d105a
+--- /dev/null
++++ b/docs/index.md
+@@ -0,0 +1,8 @@
++# SupertonicSynth
++
++```{toctree}
++:maxdepth: 2
++
++architecture
++troubleshooting
++```
+diff --git a/docs/make.py b/docs/make.py
+index 05b1f6c..a192842 100755
+--- a/docs/make.py
++++ b/docs/make.py
+@@ -14,31 +14,22 @@ Options:
+     help    - show help message
+ """
+
+-import os
+ import shutil
+ import subprocess
+ import sys
++from pathlib import Path
+
+
+ def main():
+     """Run the script."""
+     sphinx_build = "sphinx-build"
+-
+-    # Determine if we're being run from docs/ or from project root
+-    script_dir = os.path.dirname(os.path.abspath(__file__))
+-    if os.path.basename(script_dir) == "docs":
+-        # Running from docs directory
+-        build_dir = "_build"
+-        source_dir = "."
+-    else:
+-        # Running from project root
+-        build_dir = os.path.join("docs", "_build")
+-        source_dir = "docs"
++    source_dir = Path(__file__).resolve().parent
++    build_dir = source_dir / "_build"
+
+     target = "html" if len(sys.argv) < 2 else sys.argv[1]
+
+     if target == "clean":
+-        if os.path.exists(build_dir):
++        if build_dir.exists():
+             print(f"Cleaning {build_dir}...")
+             shutil.rmtree(build_dir)
+         return 0
+@@ -47,9 +38,6 @@ def main():
+         print(__doc__)
+         return 0
+
+-    if not os.path.exists(build_dir):
+-        os.makedirs(build_dir)
+-
+     # Set of valid targets
+     valid_targets = {
+         "html",
+@@ -69,19 +57,18 @@ def main():
+         print("Use 'help' target for help")
+         return 1
+
+-    if target == "all":
+-        # Build all formats
+-        for fmt in ["html", "dirhtml", "latex"]:
+-            cmd = [sphinx_build, "-b", fmt, source_dir, os.path.join(build_dir, fmt)]
+-            print(f"Building {fmt} documentation...")
+-            subprocess.run(cmd, check=True)
+-    else:
+-        # Build specific format
+-        cmd = [sphinx_build, "-b", target, source_dir, os.path.join(build_dir, target)]
+-        print(f"Building {target} documentation...")
++    build_dir.mkdir(parents=True, exist_ok=True)
++    formats = ["html", "dirhtml", "latex"] if target == "all" else [target]
++    for fmt in formats:
++        output_dir = build_dir / fmt
++        cmd = [sphinx_build, "-b", fmt, str(source_dir), str(output_dir)]
++        print(f"Building {fmt} documentation...")
+         subprocess.run(cmd, check=True)
+
+-    print(f"Build finished. Documentation is in {os.path.join(build_dir, target)}")
++    if target == "all":
++        print(f"Build finished. Documentation is in {build_dir}")
++    else:
++        print(f"Build finished. Documentation is in {build_dir / target}")
+     return 0
+
+
+diff --git a/docs/troubleshooting.md b/docs/troubleshooting.md
+index 5837f71..591b177 100644
+--- a/docs/troubleshooting.md
++++ b/docs/troubleshooting.md
+@@ -30,4 +30,4 @@ The calibration benchmark prepares numbers 1 through 10 with `numeralform`, then
+
+ ## OnnxVoice dependency version
+
+-The development checkout currently relies on a locally adapted OnnxVoice semantic voice-ref API. Do not guess a released dependency bound. Raise the project lower bound only after an OnnxVoice release containing that API is available and verified.
++SupertonicSynth requires OnnxVoice >=0.2.0,<0.3. Install the compatible 0.2.x line, which provides the semantic voice-ref, catalog, managed-installation, local-open, and runtime APIs used by the package.
+diff --git a/examples/multilingual.py b/examples/multilingual.py
+index 7b72d7b..4a34373 100644
+--- a/examples/multilingual.py
++++ b/examples/multilingual.py
+@@ -3,7 +3,7 @@ from supertonicsynth import SupertonicRuntime, SynthesisConfig, VoiceLevelConfig
+ examples = [
+     ("en", "A prepared English sentence."),
+     ("de", "Ein vorbereiteter deutscher Satz."),
+-    ("fr", "Une phrase française préparée."),
++    ("es", "Una frase española preparada."),
+ ]
+ config = SynthesisConfig(voice_level=VoiceLevelConfig(mode="calibrated"))
+
+diff --git a/examples/voices.py b/examples/voices.py
+index 5b56a33..1babc01 100644
+--- a/examples/voices.py
++++ b/examples/voices.py
+@@ -1,3 +1,5 @@
++"""List voices from a bundle, installing it first if the model is not available locally."""
++
+ from supertonicsynth import SupertonicRuntime
+
+ with SupertonicRuntime.from_pretrained("supertonic:supertonic-3") as tts:
+diff --git a/pyproject.toml b/pyproject.toml
+index 94b081c..1902716 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,5 +1,5 @@
+ [build-system]
+-requires = ["setuptools>=68", "wheel", "setuptools_scm[toml]>=8"]
++requires = ["setuptools>=77", "wheel", "setuptools_scm[toml]>=8"]
+ build-backend = "setuptools.build_meta"
+
+ [project]
+@@ -8,7 +8,8 @@ dynamic = ["version"]
+ description = "Supertonic-3 synthesis engine backed by OnnxVoice"
+ readme = "README.md"
+ requires-python = ">=3.10"
+-license = {text = "Apache-2.0"}
++license = "Apache-2.0"
++license-files = ["LICENSE", "NOTICE", "licenses/*.txt"]
+ authors = [{name = "SupertonicSynth contributors"}]
+ dependencies = [
+   "numpy>=1.23",
+@@ -19,7 +20,6 @@ keywords = ["tts", "text-to-speech", "supertonic", "onnx", "speech", "onnxruntim
+ classifiers = [
+   "Development Status :: 3 - Alpha",
+   "Intended Audience :: Developers",
+-  "License :: OSI Approved :: Apache Software License",
+   "Operating System :: OS Independent",
+   "Programming Language :: Python :: 3",
+   "Programming Language :: Python :: 3.10",
+@@ -36,11 +36,11 @@ Repository = "https://github.com/buchwandler/supertonicsynth"
+ Issues = "https://github.com/buchwandler/supertonicsynth/issues"
+
+ [project.optional-dependencies]
+-cpu = ["onnxvoice[cpu]>=0.1.12,<0.2", "huggingface_hub>=0.24,<2"]
+-gpu = ["onnxvoice[gpu]>=0.1.12,<0.2", "huggingface_hub>=0.24,<2"]
+-directml = ["onnxvoice[directml]>=0.1.12,<0.2", "huggingface_hub>=0.24,<2"]
+-openvino = ["onnxvoice[openvino]>=0.1.12,<0.2", "huggingface_hub>=0.24,<2"]
+-playback = ["sounddevice>=0.5,<0.6"]
++cpu = ["onnxvoice[cpu]>=0.2.0,<0.3", "huggingface_hub>=0.24,<2"]
++gpu = ["onnxvoice[gpu]>=0.2.0,<0.3", "huggingface_hub>=0.24,<2"]
++directml = ["onnxvoice[directml]>=0.2.0,<0.3", "huggingface_hub>=0.24,<2"]
++openvino = ["onnxvoice[openvino]>=0.2.0,<0.3", "huggingface_hub>=0.24,<2"]
++docs = ["sphinx>=7,<9", "myst-parser>=3,<5", "sphinx-rtd-theme>=2,<4"]
+ dev = [
+   "pytest>=8",
+   "pytest-cov>=5",
+diff --git a/supertonicsynth/__main__.py b/supertonicsynth/__main__.py
+index 9523acb..336befc 100644
+--- a/supertonicsynth/__main__.py
++++ b/supertonicsynth/__main__.py
+@@ -24,7 +24,11 @@ def build_parser() -> argparse.ArgumentParser:
+     synth.add_argument("--voice-gain-db", type=float)
+     synth.add_argument("--output-gain", type=float, default=1.0)
+     synth.add_argument("--normalize-audio", action=argparse.BooleanOptionalAction, default=None)
+-    voices = sub.add_parser("voices", help="list installed bundle voices")
++    voices = sub.add_parser(
++        "voices",
++        help="install/open a model bundle and list its voices",
++        description="Installs and downloads the selected bundle if needed, then lists its voices.",
++    )
+     voices.add_argument("--model", default="supertonic-3")
+     return parser
+
+diff --git a/supertonicsynth/config.py b/supertonicsynth/config.py
+index 5361ac3..3e9b458 100644
+--- a/supertonicsynth/config.py
++++ b/supertonicsynth/config.py
+@@ -47,5 +47,6 @@ MIN_SPEED = 0.7
+ MAX_SPEED = 2.0
+ MIN_STEPS = 1
+ MAX_STEPS = 100
++MAX_SEED = 0xFFFFFFFF
+ MAX_TEXT_LENGTH = 100_000
+ SAMPLE_RATE = 44_100
+diff --git a/supertonicsynth/runtime.py b/supertonicsynth/runtime.py
+index 8cccb04..2478f33 100644
+--- a/supertonicsynth/runtime.py
++++ b/supertonicsynth/runtime.py
+@@ -23,6 +23,7 @@ from .config import (
+     DEFAULT_MAX_CHUNK_LENGTH_KO,
+     DEFAULT_MODEL,
+     DEFAULT_VOICE,
++    MAX_SEED,
+     MAX_TEXT_LENGTH,
+ )
+ from .errors import (
+@@ -205,6 +206,10 @@ class SupertonicRuntime:
+         chunks = chunk_text(text, limit)
+         if not chunks:
+             raise InvalidRequestError("text produced no synthesis chunks")
++        if effective.seed is not None and effective.seed + len(chunks) - 1 > MAX_SEED:
++            raise InvalidRequestError(
++                f"seed for {len(chunks)} chunks would exceed the maximum seed {MAX_SEED}"
++            )
+         audio_parts: list[np.ndarray] = []
+         for index, chunk in enumerate(chunks):
+             batch = self.frontend.encode(chunk, language)
+diff --git a/supertonicsynth/types.py b/supertonicsynth/types.py
+index 0adcdef..909f699 100644
+--- a/supertonicsynth/types.py
++++ b/supertonicsynth/types.py
+@@ -2,13 +2,14 @@ from __future__ import annotations
+
+ from collections.abc import Mapping
+ from dataclasses import dataclass, field
++from numbers import Real
+ from pathlib import Path
+ from typing import Any
+
+ import numpy as np
+
+ from .audio import float_to_int16, write_wav
+-from .config import MAX_SPEED, MAX_STEPS, MIN_SPEED, MIN_STEPS
++from .config import MAX_SEED, MAX_SPEED, MAX_STEPS, MIN_SPEED, MIN_STEPS
+ from .voice_level import VoiceLevelConfig
+
+
+@@ -24,19 +25,43 @@ class SynthesisConfig:
+     voice_level: VoiceLevelConfig = field(default_factory=VoiceLevelConfig)
+
+     def __post_init__(self) -> None:
++        if isinstance(self.steps, bool) or not isinstance(self.steps, int):
++            raise ValueError("steps must be an integer")
+         if not MIN_STEPS <= self.steps <= MAX_STEPS:
+             raise ValueError(f"steps must be between {MIN_STEPS} and {MAX_STEPS}")
++        if (
++            isinstance(self.speed, bool)
++            or not isinstance(self.speed, Real)
++            or not np.isfinite(self.speed)
++        ):
++            raise ValueError("speed must be a finite real number")
+         if not MIN_SPEED <= self.speed <= MAX_SPEED:
+             raise ValueError(f"speed must be between {MIN_SPEED} and {MAX_SPEED}")
+-        if self.max_chunk_length is not None and self.max_chunk_length < 10:
+-            raise ValueError("max_chunk_length must be at least 10")
++        if self.max_chunk_length is not None:
++            if isinstance(self.max_chunk_length, bool) or not isinstance(
++                self.max_chunk_length, int
++            ):
++                raise ValueError("max_chunk_length must be an integer or None")
++            if self.max_chunk_length < 10:
++                raise ValueError("max_chunk_length must be at least 10")
++        if (
++            isinstance(self.silence_duration, bool)
++            or not isinstance(self.silence_duration, Real)
++            or not np.isfinite(self.silence_duration)
++        ):
++            raise ValueError("silence_duration must be a finite real number")
+         if self.silence_duration < 0:
+             raise ValueError("silence_duration must be non-negative")
++        if self.seed is not None:
++            if isinstance(self.seed, bool) or not isinstance(self.seed, int):
++                raise ValueError("seed must be an integer or None")
++            if not 0 <= self.seed <= MAX_SEED:
++                raise ValueError(f"seed must be between 0 and {MAX_SEED}")
+         if not isinstance(self.normalize_audio, bool):
+             raise ValueError("normalize_audio must be a bool")
+         if (
+             isinstance(self.output_gain, bool)
+-            or not isinstance(self.output_gain, (int, float))
++            or not isinstance(self.output_gain, Real)
+             or not np.isfinite(self.output_gain)
+             or self.output_gain < 0
+         ):
+diff --git a/tests/test_runtime_fake.py b/tests/test_runtime_fake.py
+index edc9895..f0cb95c 100644
+--- a/tests/test_runtime_fake.py
++++ b/tests/test_runtime_fake.py
+@@ -1,12 +1,14 @@
+ from types import SimpleNamespace
+
+ import numpy as np
++import pytest
+
+ import supertonicsynth.voice_level as voice_level_module
+ from supertonicsynth._onnxvoice import (
+     ResolvedSupertonicBundle,
+     installation_to_bundle_info,
+ )
++from supertonicsynth.errors import InvalidRequestError
+ from supertonicsynth.runtime import SupertonicRuntime
+ from supertonicsynth.style import VoiceStyle
+ from supertonicsynth.types import SynthesisConfig
+@@ -81,6 +83,16 @@ def test_runtime_fake(tmp_path):
+     assert fake.closed
+
+
++def test_runtime_rejects_derived_seed_overflow_before_inference(tmp_path):
++    runtime, fake, _ = make_runtime(tmp_path)
++    config = SynthesisConfig(max_chunk_length=10, seed=0xFFFFFFFF)
++
++    with pytest.raises(InvalidRequestError, match="maximum seed"):
++        runtime.synthesize_text("First. Second.", config=config)
++
++    assert fake.calls == []
++
++
+ def test_managed_voice_identity_overrides_and_postprocessing(tmp_path):
+     raw = np.array([0.2, -0.4], dtype=np.float32)
+     runtime, _, bundle = make_runtime(tmp_path, audio=raw, style_names=("F1",), managed=True)
+diff --git a/tests/test_types.py b/tests/test_types.py
+index 650fce9..cefa633 100644
+--- a/tests/test_types.py
++++ b/tests/test_types.py
+@@ -37,3 +37,31 @@ def test_wav(tmp_path):
+     result = SynthesisResult(np.zeros(100, dtype=np.float32), 1000, 0.1, 1)
+     path = result.write_wav(tmp_path / "out.wav")
+     assert path.stat().st_size > 44
++
++
++@pytest.mark.parametrize(
++    "kwargs",
++    [
++        {"steps": True},
++        {"steps": 1.5},
++        {"speed": True},
++        {"speed": float("nan")},
++        {"speed": float("inf")},
++        {"speed": 0.6},
++        {"speed": 2.1},
++        {"max_chunk_length": True},
++        {"max_chunk_length": 10.5},
++        {"max_chunk_length": 9},
++        {"silence_duration": True},
++        {"silence_duration": float("nan")},
++        {"silence_duration": float("inf")},
++        {"silence_duration": -0.1},
++        {"seed": True},
++        {"seed": -1},
++        {"seed": 2**32},
++        {"seed": 1.5},
++    ],
++)
++def test_synthesis_config_rejects_invalid_values(kwargs):
++    with pytest.raises(ValueError):
++        SynthesisConfig(**kwargs)

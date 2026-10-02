@@ -1,0 +1,182 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 1
+release_version: v0.1.0
+git_base_ref: :root
+git_base_sha: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+git_head_ref: v0.1.0
+git_head_sha: 923c0a635a19bafe89172be84cbc85e8323ae10d
+git_range: :root..923c0a635a19bafe89172be84cbc85e8323ae10d
+commit_count: 6
+rows:
+  - sha: 70688c003a35e495cde226ecee118d4ebb3b911f
+    source_ref: git:70688c003a35e495cde226ecee118d4ebb3b911f
+    short_sha: 70688c0
+    changed_paths: []
+    stats:
+      files_changed: 0
+      insertions: 0
+      deletions: 0
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: Initial commit
+  - sha: 1ef14f0de10cc52db0243d5a72525ecc6f8e92b9
+    source_ref: git:1ef14f0de10cc52db0243d5a72525ecc6f8e92b9
+    short_sha: 1ef14f0
+    changed_paths:
+      - .codecrate.toml
+      - .github/workflows/python-publish.yml
+      - .github/workflows/tests.yml
+      - .gitignore
+      - .ledger/ledger.toml
+      - .ledger/releaseledger/.ledger-project.toml
+      - .ledger/releaseledger/config.toml
+      - .ledger/releaseledger/data/.ledger-project.toml
+      - .ledger/taskledger/.ledger-project.toml
+      - .ledger/taskledger/config.toml
+      - .pre-commit-config.yaml
+      - CHANGELOG.md
+      - NOTICE
+      - README.md
+      - docs/Makefile
+      - docs/conf.py
+      - docs/make.bat
+      - docs/make.py
+      - examples/basic.py
+      - examples/multilingual.py
+      - examples/voices.py
+      - licenses/SUPERTONIC-PY-MIT.txt
+      - pyproject.toml
+      - supertonicsynth/__init__.py
+      - supertonicsynth/__main__.py
+      - supertonicsynth/_onnxvoice.py
+      - supertonicsynth/asset_manager.py
+      - supertonicsynth/config.py
+      - supertonicsynth/convenience.py
+      - supertonicsynth/errors.py
+      - supertonicsynth/frontend.py
+      - supertonicsynth/py.typed
+      - supertonicsynth/runtime.py
+      - supertonicsynth/style.py
+      - supertonicsynth/text_split.py
+      - supertonicsynth/types.py
+      - tests/test_config.py
+      - tests/test_frontend.py
+      - tests/test_runtime_fake.py
+      - tests/test_style.py
+      - tests/test_text_split.py
+      - tests/test_types.py
+    stats:
+      files_changed: 42
+      insertions: 1971
+      deletions: 3
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "feat: initial version"
+  - sha: 35a3bcce3c65d4eb824a213b8e9ef9cf039b9153
+    source_ref: git:35a3bcce3c65d4eb824a213b8e9ef9cf039b9153
+    short_sha: 35a3bcc
+    changed_paths:
+      - examples/voices.py
+      - pyproject.toml
+    stats:
+      files_changed: 2
+      insertions: 5
+      deletions: 5
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "fix: voices example"
+  - sha: 8c87254fec22b4d4f312038a16f9a238bc9fbca8
+    source_ref: git:8c87254fec22b4d4f312038a16f9a238bc9fbca8
+    short_sha: 8c87254
+    changed_paths:
+      - .gitignore
+      - CHANGELOG.md
+      - README.md
+      - benchmarks/README.md
+      - benchmarks/__init__.py
+      - benchmarks/data/voice_level_policy.json
+      - benchmarks/promote_voice_calibration.py
+      - benchmarks/voice_level_benchmark.py
+      - docs/architecture.md
+      - docs/troubleshooting.md
+      - examples/basic.py
+      - examples/multilingual.py
+      - pyproject.toml
+      - supertonicsynth/__init__.py
+      - supertonicsynth/__main__.py
+      - supertonicsynth/_onnxvoice.py
+      - supertonicsynth/asset_manager.py
+      - supertonicsynth/audio.py
+      - supertonicsynth/convenience.py
+      - supertonicsynth/data/voice_level_calibration.json
+      - supertonicsynth/runtime.py
+      - supertonicsynth/text_split.py
+      - supertonicsynth/types.py
+      - supertonicsynth/voice_level.py
+      - tests/test_audio.py
+      - tests/test_cli.py
+      - tests/test_frontend.py
+      - tests/test_promote_voice_calibration.py
+      - tests/test_runtime_fake.py
+      - tests/test_style.py
+      - tests/test_types.py
+      - tests/test_voice_level_benchmark.py
+      - tests/test_voice_leveling.py
+    stats:
+      files_changed: 33
+      insertions: 3034
+      deletions: 96
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "feat: add voice calibration"
+  - sha: a5f8e982e079dbb3df25a7f6884febc8f3287a29
+    source_ref: git:a5f8e982e079dbb3df25a7f6884febc8f3287a29
+    short_sha: a5f8e98
+    changed_paths:
+      - pyproject.toml
+    stats:
+      files_changed: 1
+      insertions: 2
+      deletions: 0
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "fix: missing package"
+  - sha: 923c0a635a19bafe89172be84cbc85e8323ae10d
+    source_ref: git:923c0a635a19bafe89172be84cbc85e8323ae10d
+    short_sha: 923c0a6
+    changed_paths:
+      - .github/workflows/python-publish.yml
+    stats:
+      files_changed: 1
+      insertions: 4
+      deletions: 1
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "chore: fix ci"

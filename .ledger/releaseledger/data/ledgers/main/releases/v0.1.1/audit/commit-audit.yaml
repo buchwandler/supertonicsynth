@@ -1,0 +1,102 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: v0.1.1
+git_base_ref: v0.1.0
+git_base_sha: 923c0a635a19bafe89172be84cbc85e8323ae10d
+git_head_ref: HEAD
+git_head_sha: 6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+git_range: 923c0a635a19bafe89172be84cbc85e8323ae10d..6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+commit_count: 2
+rows:
+  - sha: 1614c4cc1c0b49701be2f78a92de16516ad42573
+    source_ref: git:1614c4cc1c0b49701be2f78a92de16516ad42573
+    short_sha: 1614c4c
+    changed_paths:
+      - CHANGELOG.md
+      - README.md
+      - benchmarks/README.md
+      - docs/architecture.md
+      - docs/troubleshooting.md
+      - supertonicsynth/data/voice_level_calibration.json
+      - tests/test_voice_leveling.py
+    stats:
+      files_changed: 7
+      insertions: 2317
+      deletions: 11
+    inspected: true
+    inspected_paths:
+      - README.md
+      - benchmarks/README.md
+      - docs/troubleshooting.md
+      - supertonicsynth/data/voice_level_calibration.json
+      - tests/test_voice_leveling.py
+    observed_behavior:
+      Expands supertonicsynth/data/voice_level_calibration.json from
+      an empty catalog to 252 reviewed bs1770 voice/language calibration records, updates
+      the catalog tests to assert the entry count, per-identity gain and variability
+      policy, and documents the partial coverage limits of the 310-key matrix.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: add voice level calibration"
+    target_entry_id: entry-0001
+    notes: ""
+  - sha: 6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    source_ref: git:6a261a52e47b402d56f970f66bac3a65f9d4e1b2
+    short_sha: 6a261a5
+    changed_paths:
+      - .github/workflows/python-publish.yml
+      - .github/workflows/tests.yml
+      - CHANGELOG.md
+      - README.md
+      - docs/architecture.md
+      - docs/conf.py
+      - docs/index.md
+      - docs/make.py
+      - docs/troubleshooting.md
+      - examples/multilingual.py
+      - examples/voices.py
+      - pyproject.toml
+      - supertonicsynth/__main__.py
+      - supertonicsynth/config.py
+      - supertonicsynth/runtime.py
+      - supertonicsynth/types.py
+      - tests/test_runtime_fake.py
+      - tests/test_types.py
+    stats:
+      files_changed: 18
+      insertions: 235
+      deletions: 66
+    inspected: true
+    inspected_paths:
+      - .github/workflows/python-publish.yml
+      - .github/workflows/tests.yml
+      - README.md
+      - docs/conf.py
+      - docs/index.md
+      - docs/make.py
+      - examples/multilingual.py
+      - examples/voices.py
+      - pyproject.toml
+      - supertonicsynth/__main__.py
+      - supertonicsynth/config.py
+      - supertonicsynth/runtime.py
+      - supertonicsynth/types.py
+      - tests/test_runtime_fake.py
+      - tests/test_types.py
+    observed_behavior:
+      Adds integer, finiteness and seed range validation to SynthesisConfig
+      and rejects synthesis seeds that would overflow the 32-bit seed range across chunks;
+      raises the OnnxVoice extras to >=0.2.0,<0.3; modernizes license metadata to an
+      SPDX expression with bundled license files; adds a Sphinx docs extra and a docs
+      index page; clarifies that the voices command installs the selected bundle; and
+      reworks the publish and test workflows.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: prepare for v0.1.1"
+    target_entry_id: entry-0002
+    notes: ""

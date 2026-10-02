@@ -1,0 +1,2277 @@
+ .codecrate.toml                                 |  24 +++
+ .github/workflows/python-publish.yml            |  20 ++
+ .github/workflows/tests.yml                     |  18 ++
+ .gitignore                                      |   6 +-
+ .ledger/ledger.toml                             |  24 +++
+ .ledger/releaseledger/.ledger-project.toml      |   6 +
+ .ledger/releaseledger/config.toml               |  57 ++++++
+ .ledger/releaseledger/data/.ledger-project.toml |   6 +
+ .ledger/taskledger/.ledger-project.toml         |   6 +
+ .ledger/taskledger/config.toml                  |   7 +
+ .pre-commit-config.yaml                         |  64 ++++++
+ CHANGELOG.md                                    |   5 +
+ NOTICE                                          |   6 +
+ README.md                                       |  80 +++++++-
+ docs/Makefile                                   |  32 +++
+ docs/conf.py                                    | 101 +++++++++
+ docs/make.bat                                   | 113 ++++++++++
+ docs/make.py                                    |  89 ++++++++
+ examples/basic.py                               |   8 +
+ examples/multilingual.py                        |  10 +
+ examples/voices.py                              |   5 +
+ licenses/SUPERTONIC-PY-MIT.txt                  |  21 ++
+ pyproject.toml                                  |  94 +++++++++
+ supertonicsynth/__init__.py                     |  41 ++++
+ supertonicsynth/__main__.py                     |  42 ++++
+ supertonicsynth/_onnxvoice.py                   | 261 ++++++++++++++++++++++++
+ supertonicsynth/asset_manager.py                |  62 ++++++
+ supertonicsynth/config.py                       |  51 +++++
+ supertonicsynth/convenience.py                  |  21 ++
+ supertonicsynth/errors.py                       |  58 ++++++
+ supertonicsynth/frontend.py                     | 143 +++++++++++++
+ supertonicsynth/py.typed                        |   0
+ supertonicsynth/runtime.py                      | 235 +++++++++++++++++++++
+ supertonicsynth/style.py                        |  55 +++++
+ supertonicsynth/text_split.py                   |  31 +++
+ supertonicsynth/types.py                        |  61 ++++++
+ tests/test_config.py                            |   7 +
+ tests/test_frontend.py                          |  17 ++
+ tests/test_runtime_fake.py                      |  45 ++++
+ tests/test_style.py                             |  19 ++
+ tests/test_text_split.py                        |   7 +
+ tests/test_types.py                             |  16 ++
+ 42 files changed, 1971 insertions(+), 3 deletions(-)
+
+diff --git a/.codecrate.toml b/.codecrate.toml
+new file mode 100644
+index 0000000..e2408b4
+--- /dev/null
++++ b/.codecrate.toml
+@@ -0,0 +1,24 @@
++[codecrate]
++output = "context_supertonicsynth.md"
++keep_docstrings = true
++dedupe = true
++respect_gitignore = true
++exclude = ["*/.venv/*", "context_supertonicsynth.*"]
++include = [
++  "**/*.py",
++  "**/*.json",
++  "**/*.toml",
++  "**/*.rst",
++  "**/*.md",
++  "**/*.yaml",
++  "**/*.yml",
++  "**/py.typed",
++  "**/NOTICE",
++  "**/NOTICE.*",
++  "**/MANIFEST.in",
++  "LICENSE*",
++]
++split_max_chars = 2500000
++layout = "full"
++profile = "portable-agent"
++emit_standalone_unpacker = true
+diff --git a/.github/workflows/python-publish.yml b/.github/workflows/python-publish.yml
+new file mode 100644
+index 0000000..196cf8a
+--- /dev/null
++++ b/.github/workflows/python-publish.yml
+@@ -0,0 +1,20 @@
++name: publish
++on:
++  push:
++    tags: ["v*"]
++permissions:
++  contents: read
++  id-token: write
++jobs:
++  build:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          fetch-depth: 0
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.12"
++      - run: python -m pip install build
++      - run: python -m build
++      - uses: pypa/gh-action-pypi-publish@release/v1
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+new file mode 100644
+index 0000000..b3b48dd
+--- /dev/null
++++ b/.github/workflows/tests.yml
+@@ -0,0 +1,18 @@
++name: tests
++on: [push, pull_request]
++permissions:
++  contents: read
++jobs:
++  test:
++    strategy:
++      matrix:
++        python-version: ["3.10", "3.11", "3.12", "3.13"]
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: ${{ matrix.python-version }}
++      - run: python -m pip install -e ".[dev]"
++      - run: pytest
++      - run: ruff check .
+diff --git a/.gitignore b/.gitignore
+index 83972fa..eb1d420 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -195,9 +195,9 @@ cython_debug/
+ .abstra/
+
+ # Visual Studio Code
+-#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore
++#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore
+ #   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
+-#   and can be added to the global gitignore or merged into this file. However, if you prefer,
++#   and can be added to the global gitignore or merged into this file. However, if you prefer,
+ #   you could uncomment the following to ignore the entire vscode folder
+ # .vscode/
+ # Temporary file for partial code execution
+@@ -216,3 +216,5 @@ __marimo__/
+
+ # Streamlit
+ .streamlit/secrets.toml
++context_supertonicsynth*.*
++supertonicsynth/_version.py
+diff --git a/.ledger/ledger.toml b/.ledger/ledger.toml
+new file mode 100644
+index 0000000..a7f9e0c
+--- /dev/null
++++ b/.ledger/ledger.toml
+@@ -0,0 +1,24 @@
++schema_version = 3
++
++[project]
++uuid = "e64a3325-bfe3-4d22-a6be-fd98a12ee8e5"
++name = "supertonicsynth"
++
++[ledgers.taskledger.mounts.data]
++storage = "external"
++root = "../ledger"
++
++[ledgers.taskledger.mounts.runtime]
++storage = "user-data"
++
++[ledgers.taskledger.mounts.logs]
++storage = "user-data"
++
++[ledgers.taskledger.mounts.indexes]
++storage = "cache"
++
++[ledgers.releaseledger.mounts.data]
++storage = "project"
++
++[ledgers.releaseledger.mounts.indexes]
++storage = "cache"
+diff --git a/.ledger/releaseledger/.ledger-project.toml b/.ledger/releaseledger/.ledger-project.toml
+new file mode 100644
+index 0000000..16151c6
+--- /dev/null
++++ b/.ledger/releaseledger/.ledger-project.toml
+@@ -0,0 +1,6 @@
++schema_version = 1
++layout_version = 3
++project_uuid = "e64a3325-bfe3-4d22-a6be-fd98a12ee8e5"
++tool = "releaseledger"
++mount = "config"
++storage = "project"
+diff --git a/.ledger/releaseledger/config.toml b/.ledger/releaseledger/config.toml
+new file mode 100644
+index 0000000..b440614
+--- /dev/null
++++ b/.ledger/releaseledger/config.toml
+@@ -0,0 +1,57 @@
++config_version = 2
++# Branch-scoped release state. This block is safe to commit.
++ledger_ref = "main"
++ledger_parent_ref = ""
++ledger_branch_guard = "off"
++# Cross-ledger identity. Local record IDs stay unchanged.
++
++[ledger]
++code = "rl"
++# Release defaults.
++
++[release]
++default_changelog = "CHANGELOG.md"
++default_status = "planned"
++allow_dirty_worktree = true
++# Changelog build defaults.
++
++[changelog]
++output = "docs/changelog.md"
++header = ""
++body = """## {% if release.date %}[{{ release.version }}] - {{ release.date }}{% else %}[{{ release.version }}] - Unreleased{% endif %}
++
++{% for group in groups %}
++### {{ group.title }}
++{% for entry in group.entries %}
++- {% if entry.breaking %}**BREAKING:** {% endif %}{{ entry.summary }}
++{% endfor %}
++
++{% endfor %}
++"""
++footer = "<!-- generated by releaseledger -->"
++trim = true
++render_always = false
++postprocessors = []
++standard = ""
++group_mode = "extended"
++link_references = false
++repository_url = ""
++tag_prefix = "v"
++compare_url_template = ""
++release_url_template = ""
++preamble = ""
++semver = false
++unreleased = true
++# Git-first release evidence.
++
++[git]
++enabled = true
++tag_creation = "local"
++default_base = "previous_release_tag"
++default_head = "HEAD"
++previous_tag_patterns = ["v{version}", "{version}"]
++include_merges = "nontrivial"
++require_clean_worktree = false
++max_commits = 500
++max_diff_chars_per_commit = 12000
++candidate_status = "draft"
+diff --git a/.ledger/releaseledger/data/.ledger-project.toml b/.ledger/releaseledger/data/.ledger-project.toml
+new file mode 100644
+index 0000000..a92fd72
+--- /dev/null
++++ b/.ledger/releaseledger/data/.ledger-project.toml
+@@ -0,0 +1,6 @@
++schema_version = 1
++layout_version = 3
++project_uuid = "e64a3325-bfe3-4d22-a6be-fd98a12ee8e5"
++tool = "releaseledger"
++mount = "data"
++storage = "project"
+diff --git a/.ledger/taskledger/.ledger-project.toml b/.ledger/taskledger/.ledger-project.toml
+new file mode 100644
+index 0000000..e207816
+--- /dev/null
++++ b/.ledger/taskledger/.ledger-project.toml
+@@ -0,0 +1,6 @@
++schema_version = 1
++layout_version = 3
++project_uuid = "e64a3325-bfe3-4d22-a6be-fd98a12ee8e5"
++tool = "taskledger"
++mount = "config"
++storage = "project"
+diff --git a/.ledger/taskledger/config.toml b/.ledger/taskledger/config.toml
+new file mode 100644
+index 0000000..6f94549
+--- /dev/null
++++ b/.ledger/taskledger/config.toml
+@@ -0,0 +1,7 @@
++# Project-local Taskledger configuration.
++# Storage topology belongs to Ledgercore; branch state belongs to data/state.toml.
++config_version = 3
++
++[ledger]
++code = 'tl'
++name = 'taskledger'
+diff --git a/.pre-commit-config.yaml b/.pre-commit-config.yaml
+new file mode 100644
+index 0000000..61a9e5e
+--- /dev/null
++++ b/.pre-commit-config.yaml
+@@ -0,0 +1,64 @@
++exclude: |
++  # NOT INSTALLABLE ADDONS
++  # END NOT INSTALLABLE ADDONS
++  # Files and folders generated by bots, to avoid loops
++  ^setup/|/static/description/index\.html$|
++  # We don't want to mess with tool-generated files
++  .svg$|/tests/([^/]+/)?cassettes/|^.copier-answers.yml$|^.github/|
++  # Maybe reactivate this when all README files include prettier ignore tags?
++  ^README\.md$|
++  # Repos using Sphinx to generate docs don't need prettying
++  ^docs/_templates/.*\.html$|
++  # Don't bother non-technical authors with formatting issues in docs
++  readme/.*\.(rst|md)$|
++  # Ignore build and dist directories in addons
++  /build/|/dist/|/dev/|/notnebooks/
++  # You don't usually want a bot to modify your legal texts
++  (LICENSE.*|COPYING.*)|
++default_language_version:
++  python: python3
++repos:
++  - repo: local
++    hooks:
++      - id: ruff-check
++        name: ruff check
++        entry: ruff check --exit-non-zero-on-fix --force-exclude
++        language: system
++        types_or: [python, pyi]
++      - id: ruff-format
++        name: ruff format
++        entry: ruff format --force-exclude
++        language: system
++        types_or: [python, pyi]
++  - repo: https://github.com/asottile/pyupgrade
++    rev: v3.21.2
++    hooks:
++      - id: pyupgrade
++        args: [--py310-plus]
++  - repo: https://github.com/pre-commit/pre-commit-hooks
++    rev: v6.0.0
++    hooks:
++      - id: check-toml
++      - id: check-yaml
++      - id: end-of-file-fixer
++      - id: trailing-whitespace
++      - id: check-symlinks
++      - id: check-xml
++      - id: mixed-line-ending
++        args: ["--fix=lf"]
++      - id: debug-statements
++      - id: check-case-conflict
++      - id: check-docstring-first
++      - id: check-executables-have-shebangs
++      - id: check-merge-conflict
++  - repo: https://github.com/pre-commit/mirrors-prettier
++    rev: v4.0.0-alpha.8
++    hooks:
++      - id: prettier
++        name: prettier (with plugin-xml)
++        additional_dependencies:
++          - "prettier@2.7.1"
++          - "@prettier/plugin-xml@2.2.0"
++        args:
++          - --plugin=@prettier/plugin-xml
++        files: \.(css|htm|html|js|json|jsx|less|md|scss|toml|ts|xml|yaml|yml)$
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+new file mode 100644
+index 0000000..537d945
+--- /dev/null
++++ b/CHANGELOG.md
+@@ -0,0 +1,5 @@
++# Changelog
++
++## Unreleased
++
++- Bootstrap Supertonic-3 frontend/runtime package around the staged OnnxVoice `supertonic` adapter and catalog.
+diff --git a/NOTICE b/NOTICE
+new file mode 100644
+index 0000000..b0fd19f
+--- /dev/null
++++ b/NOTICE
+@@ -0,0 +1,6 @@
++SupertonicSynth
++Copyright 2026 SupertonicSynth contributors
++
++Portions of the text frontend, style format handling, chunking behavior, and Supertonic inference contract are derived from the archived supertone-oss-archive/supertonic-py project, which is licensed under the MIT License. See licenses/SUPERTONIC-PY-MIT.txt.
++
++Supertonic-3 model assets are not distributed with this package and remain subject to their upstream OpenRAIL-M license.
+diff --git a/README.md b/README.md
+index 18de302..98906bf 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,79 @@
+-# supertonicsynth
+\ No newline at end of file
++# supertonicsynth
++
++A flat-layout Python synthesis package for Supertonic-3, using OnnxVoice for model storage, integrity verification, ONNX sessions, providers, and runtime diagnostics.
++
++## Design
++
++`supertonicsynth` owns:
++
++- Supertonic text normalization and Unicode indexing.
++- language tokens.
++- voice-style JSON loading.
++- long-text chunking.
++- synthesis configuration and WAV/result handling.
++
++OnnxVoice owns:
++
++- the `supertonic` catalog/store.
++- downloads and checksums.
++- the four ONNX sessions.
++- provider configuration.
++- the Supertonic model-ready inference loop.
++
++## Install
++
++```bash
++pip install "supertonicsynth[cpu]"
++```
++
++The package uses dynamic VCS versioning via `setuptools_scm`; there is no static version in `pyproject.toml`.
++
++The pretrained model catalog targets the archived Supertonic TTS weights at `supertone-oss-archive/supertonic-3`; model downloading remains an OnnxVoice responsibility.
++
++## Usage
++
++```python
++from supertonicsynth import SupertonicRuntime
++
++with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
++    result = tts.synthesize_text(
++        "Welcome to SupertonicSynth.",
++        voice="M1",
++        language="en",
++        steps=5,
++        seed=1234,
++    )
++    result.write_wav("output.wav")
++```
++
++Local bundle:
++
++```python
++with SupertonicRuntime.from_local("/models/supertonic-3") as tts:
++    result = tts.synthesize_text("Hello.", voice="F1", language="en")
++```
++
++## Runtime prerequisite
++
++The included package targets the staged OnnxVoice work described in the sibling implementation briefs. Until an OnnxVoice release includes `system="supertonic"`, local/pretrained opening will fail with a runtime capability error.
++
++## Repository layout
++
++There is deliberately **no `src/` layer**:
++
++```text
++supertonicsynth/
++  __init__.py
++  runtime.py
++  frontend.py
++  ...
++tests/
++examples/
++pyproject.toml
++```
++
++## Licensing
++
++SupertonicSynth project code is Apache-2.0. Portions of the frontend/text behavior are derived from the archived MIT-licensed `supertone-oss-archive/supertonic-py`; the upstream MIT notice is preserved under `licenses/SUPERTONIC-PY-MIT.txt` and in `NOTICE`.
++
++Supertonic-3 model assets are not included in this package and retain their upstream OpenRAIL-M model license.
+diff --git a/docs/Makefile b/docs/Makefile
+new file mode 100644
+index 0000000..3ff8019
+--- /dev/null
++++ b/docs/Makefile
+@@ -0,0 +1,32 @@
++# Makefile for Sphinx documentation
++
++# You can set these variables from the command line
++SPHINXOPTS    ?=
++SPHINXBUILD   ?= sphinx-build
++SOURCEDIR     = .
++BUILDDIR      = _build
++
++# Put it first so that "make" without argument is like "make help".
++help:
++	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
++
++.PHONY: help Makefile clean html livehtml
++
++# Clean build directory
++clean:
++	rm -rf $(BUILDDIR)/*
++
++# Build HTML documentation
++html:
++	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
++	@echo
++	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
++
++# Live reload server (requires sphinx-autobuild)
++livehtml:
++	sphinx-autobuild "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS) $(O)
++
++# Catch-all target: route all unknown targets to Sphinx using the new
++# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
++%: Makefile
++	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+diff --git a/docs/conf.py b/docs/conf.py
+new file mode 100644
+index 0000000..04ea62c
+--- /dev/null
++++ b/docs/conf.py
+@@ -0,0 +1,101 @@
++# -- Path setup --------------------------------------------------------------
++
++# If extensions (or modules to document with autodoc) are in another directory,
++# add these directories to sys.path here. If the directory is relative to the
++# documentation root, use os.path.abspath to make it absolute, like shown here.
++#
++import os
++import sys
++
++sys.path.insert(0, os.path.abspath(".."))
++sys.path.insert(0, os.path.abspath("../supertonicsynth"))
++# -- Project information -----------------------------------------------------
++# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
++
++project = "supertonicsynth"
++copyright = "2026, Holger Nahrstaedt"
++author = "Holger Nahrstaedt"
++
++# -- General configuration ---------------------------------------------------
++
++# Add any Sphinx extension module names here, as strings. They can be
++# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
++# ones.
++extensions = [
++    "sphinx.ext.autodoc",
++    "sphinx.ext.doctest",
++    "sphinx.ext.intersphinx",
++    "sphinx.ext.napoleon",
++    "sphinx.ext.viewcode",
++    "myst_parser",
++]
++
++# All authored Sphinx pages are MyST Markdown.
++source_suffix = {
++    ".md": "markdown",
++}
++
++# Required for readable Markdown-native admonitions.
++myst_enable_extensions = ["colon_fence"]
++
++# Current documentation contains headings through H4.
++myst_heading_anchors = 4
++
++# Napoleon settings for NumPy-style docstrings
++napoleon_google_docstring = False
++napoleon_numpy_docstring = True
++napoleon_include_init_with_doc = True
++napoleon_include_private_with_doc = False
++napoleon_include_special_with_doc = True
++napoleon_use_admonition_for_examples = False
++napoleon_use_admonition_for_notes = False
++napoleon_use_admonition_for_references = False
++napoleon_use_ivar = False
++napoleon_use_param = True
++napoleon_use_rtype = True
++napoleon_preprocess_types = False
++napoleon_type_aliases = None
++napoleon_attr_annotations = True
++
++# Autodoc settings
++autodoc_default_options = {
++    "members": True,
++    "undoc-members": True,
++    "show-inheritance": True,
++    "member-order": "bysource",
++}
++
++# Add any paths that contain templates here, relative to this directory.
++templates_path = ["_templates"]
++
++# List of patterns, relative to source directory, that match files and
++# directories to ignore when looking for source files.
++# This pattern also affects html_static_path and html_extra_path.
++exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "README.md"]
++
++
++# -- Options for HTML output -------------------------------------------------
++
++# The theme to use for HTML and HTML Help pages.  See the documentation for
++# a list of builtin themes.
++#
++# html_theme = 'furo'
++
++html_theme = "sphinx_rtd_theme"
++
++html_theme_options = {
++    "navigation_depth": 4,
++    "titles_only": False,
++}
++
++# Add any paths that contain custom static files (such as style sheets) here,
++# relative to this directory. They are copied after the builtin static files,
++# so a file named "default.css" will overwrite the builtin "default.css".
++# html_static_path = ['_static']
++
++# Set up intersphinx maps
++intersphinx_mapping = {
++    "python": ("https://docs.python.org/3", None),
++    "numpy": ("https://numpy.org/doc/stable", None),
++    "PIL": ("https://pillow.readthedocs.io/en/stable", None),
++}
+diff --git a/docs/make.bat b/docs/make.bat
+new file mode 100644
+index 0000000..d6a9242
+--- /dev/null
++++ b/docs/make.bat
+@@ -0,0 +1,113 @@
++@ECHO OFF
++
++REM Command file for Sphinx documentation
++
++set SPHINXBUILD=sphinx-build
++set BUILDDIR=build
++set ALLSPHINXOPTS=-d %BUILDDIR%/doctrees %SPHINXOPTS% .
++if NOT "%PAPER%" == "" (
++	set ALLSPHINXOPTS=-D latex_paper_size=%PAPER% %ALLSPHINXOPTS%
++)
++
++if "%1" == "" goto help
++
++if "%1" == "help" (
++	:help
++	echo.Please use `make ^<target^>` where ^<target^> is one of
++	echo.  html      to make standalone HTML files
++	echo.  dirhtml   to make HTML files named index.html in directories
++	echo.  pickle    to make pickle files
++	echo.  json      to make JSON files
++	echo.  htmlhelp  to make HTML files and a HTML help project
++	echo.  qthelp    to make HTML files and a qthelp project
++	echo.  latex     to make LaTeX files, you can set PAPER=a4 or PAPER=letter
++	echo.  changes   to make an overview over all changed/added/deprecated items
++	echo.  linkcheck to check all external links for integrity
++	echo.  doctest   to run all doctests embedded in the documentation if enabled
++	goto end
++)
++
++if "%1" == "clean" (
++	for /d %%i in (%BUILDDIR%\*) do rmdir /q /s %%i
++	del /q /s %BUILDDIR%\*
++	goto end
++)
++
++if "%1" == "html" (
++	%SPHINXBUILD% -b html %ALLSPHINXOPTS% %BUILDDIR%/html
++	echo.
++	echo.Build finished. The HTML pages are in %BUILDDIR%/html.
++	goto end
++)
++
++if "%1" == "dirhtml" (
++	%SPHINXBUILD% -b dirhtml %ALLSPHINXOPTS% %BUILDDIR%/dirhtml
++	echo.
++	echo.Build finished. The HTML pages are in %BUILDDIR%/dirhtml.
++	goto end
++)
++
++if "%1" == "pickle" (
++	%SPHINXBUILD% -b pickle %ALLSPHINXOPTS% %BUILDDIR%/pickle
++	echo.
++	echo.Build finished; now you can process the pickle files.
++	goto end
++)
++
++if "%1" == "json" (
++	%SPHINXBUILD% -b json %ALLSPHINXOPTS% %BUILDDIR%/json
++	echo.
++	echo.Build finished; now you can process the JSON files.
++	goto end
++)
++
++if "%1" == "htmlhelp" (
++	%SPHINXBUILD% -b htmlhelp %ALLSPHINXOPTS% %BUILDDIR%/htmlhelp
++	echo.
++	echo.Build finished; now you can run HTML Help Workshop with the ^
++.hhp project file in %BUILDDIR%/htmlhelp.
++	goto end
++)
++
++if "%1" == "qthelp" (
++	%SPHINXBUILD% -b qthelp %ALLSPHINXOPTS% %BUILDDIR%/qthelp
++	echo.
++	echo.Build finished; now you can run "qcollectiongenerator" with the ^
++.qhcp project file in %BUILDDIR%/qthelp, like this:
++	echo.^> qcollectiongenerator %BUILDDIR%\qthelp\PyWavelets.qhcp
++	echo.To view the help file:
++	echo.^> assistant -collectionFile %BUILDDIR%\qthelp\PyWavelets.ghc
++	goto end
++)
++
++if "%1" == "latex" (
++	%SPHINXBUILD% -b latex %ALLSPHINXOPTS% %BUILDDIR%/latex
++	echo.
++	echo.Build finished; the LaTeX files are in %BUILDDIR%/latex.
++	goto end
++)
++
++if "%1" == "changes" (
++	%SPHINXBUILD% -b changes %ALLSPHINXOPTS% %BUILDDIR%/changes
++	echo.
++	echo.The overview file is in %BUILDDIR%/changes.
++	goto end
++)
++
++if "%1" == "linkcheck" (
++	%SPHINXBUILD% -b linkcheck %ALLSPHINXOPTS% %BUILDDIR%/linkcheck
++	echo.
++	echo.Link check complete; look for any errors in the above output ^
++or in %BUILDDIR%/linkcheck/output.txt.
++	goto end
++)
++
++if "%1" == "doctest" (
++	%SPHINXBUILD% -b doctest %ALLSPHINXOPTS% %BUILDDIR%/doctest
++	echo.
++	echo.Testing of doctests in the sources finished, look at the ^
++results in %BUILDDIR%/doctest/output.txt.
++	goto end
++)
++
++:end
+diff --git a/docs/make.py b/docs/make.py
+new file mode 100755
+index 0000000..05b1f6c
+--- /dev/null
++++ b/docs/make.py
+@@ -0,0 +1,89 @@
++#!/usr/bin/env python
++"""
++Script to build documentation for supertonicsynth.
++
++This script builds the Sphinx documentation for the supertonicsynth package.
++It can be run using:
++    python docs/make.py [option]
++
++Options:
++    clean   - clean the build directory
++    html    - build HTML documentation
++    dirhtml - build HTML documentation with directory structure
++    all     - build all documentation formats
++    help    - show help message
++"""
++
++import os
++import shutil
++import subprocess
++import sys
++
++
++def main():
++    """Run the script."""
++    sphinx_build = "sphinx-build"
++
++    # Determine if we're being run from docs/ or from project root
++    script_dir = os.path.dirname(os.path.abspath(__file__))
++    if os.path.basename(script_dir) == "docs":
++        # Running from docs directory
++        build_dir = "_build"
++        source_dir = "."
++    else:
++        # Running from project root
++        build_dir = os.path.join("docs", "_build")
++        source_dir = "docs"
++
++    target = "html" if len(sys.argv) < 2 else sys.argv[1]
++
++    if target == "clean":
++        if os.path.exists(build_dir):
++            print(f"Cleaning {build_dir}...")
++            shutil.rmtree(build_dir)
++        return 0
++
++    if target == "help":
++        print(__doc__)
++        return 0
++
++    if not os.path.exists(build_dir):
++        os.makedirs(build_dir)
++
++    # Set of valid targets
++    valid_targets = {
++        "html",
++        "dirhtml",
++        "latex",
++        "latexpdf",
++        "text",
++        "man",
++        "changes",
++        "linkcheck",
++        "doctest",
++        "all",
++    }
++
++    if target not in valid_targets:
++        print(f"Unknown target: {target}")
++        print("Use 'help' target for help")
++        return 1
++
++    if target == "all":
++        # Build all formats
++        for fmt in ["html", "dirhtml", "latex"]:
++            cmd = [sphinx_build, "-b", fmt, source_dir, os.path.join(build_dir, fmt)]
++            print(f"Building {fmt} documentation...")
++            subprocess.run(cmd, check=True)
++    else:
++        # Build specific format
++        cmd = [sphinx_build, "-b", target, source_dir, os.path.join(build_dir, target)]
++        print(f"Building {target} documentation...")
++        subprocess.run(cmd, check=True)
++
++    print(f"Build finished. Documentation is in {os.path.join(build_dir, target)}")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/examples/basic.py b/examples/basic.py
+new file mode 100644
+index 0000000..bbc7e8e
+--- /dev/null
++++ b/examples/basic.py
+@@ -0,0 +1,8 @@
++from supertonicsynth import SupertonicRuntime
++
++with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
++    result = tts.synthesize_text(
++        "Welcome to SupertonicSynth.", voice="M1", language="en", seed=1234
++    )
++    result.write_wav("basic.wav")
++    print(result.duration)
+diff --git a/examples/multilingual.py b/examples/multilingual.py
+new file mode 100644
+index 0000000..c69c66c
+--- /dev/null
++++ b/examples/multilingual.py
+@@ -0,0 +1,10 @@
++from supertonicsynth import SupertonicRuntime
++
++examples = [
++    ("en", "Hello from Supertonic."),
++    ("de", "Hallo von Supertonic."),
++    ("fr", "Bonjour de Supertonic."),
++]
++with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
++    for lang, text in examples:
++        tts.synthesize_text(text, voice="F1", language=lang).write_wav(f"example_{lang}.wav")
+diff --git a/examples/voices.py b/examples/voices.py
+new file mode 100644
+index 0000000..c595680
+--- /dev/null
++++ b/examples/voices.py
+@@ -0,0 +1,5 @@
++from supertonicsynth import SupertonicRuntime
++
++with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
++    for voice in tts.voice_names:
++        print(voice)
+diff --git a/licenses/SUPERTONIC-PY-MIT.txt b/licenses/SUPERTONIC-PY-MIT.txt
+new file mode 100644
+index 0000000..6bd4c6b
+--- /dev/null
++++ b/licenses/SUPERTONIC-PY-MIT.txt
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) 2025 Supertone Inc.
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+diff --git a/pyproject.toml b/pyproject.toml
+new file mode 100644
+index 0000000..0f5f68c
+--- /dev/null
++++ b/pyproject.toml
+@@ -0,0 +1,94 @@
++[build-system]
++requires = ["setuptools>=68", "wheel", "setuptools_scm[toml]>=8"]
++build-backend = "setuptools.build_meta"
++
++[project]
++name = "supertonicsynth"
++dynamic = ["version"]
++description = "Supertonic-3 synthesis engine backed by OnnxVoice"
++readme = "README.md"
++requires-python = ">=3.10"
++license = {text = "Apache-2.0"}
++authors = [{name = "SupertonicSynth contributors"}]
++dependencies = [
++  "numpy>=1.23",
++  "onnxvoice>=0.1.12,<0.2",
++]
++keywords = ["tts", "text-to-speech", "supertonic", "onnx", "speech", "onnxruntime"]
++classifiers = [
++  "Development Status :: 3 - Alpha",
++  "Intended Audience :: Developers",
++  "License :: OSI Approved :: Apache Software License",
++  "Operating System :: OS Independent",
++  "Programming Language :: Python :: 3",
++  "Programming Language :: Python :: 3.10",
++  "Programming Language :: Python :: 3.11",
++  "Programming Language :: Python :: 3.12",
++  "Programming Language :: Python :: 3.13",
++  "Topic :: Multimedia :: Sound/Audio :: Speech",
++  "Topic :: Software Development :: Libraries :: Python Modules",
++]
++
++[project.urls]
++Homepage = "https://github.com/buchwandler/supertonicsynth"
++Repository = "https://github.com/buchwandler/supertonicsynth"
++Issues = "https://github.com/buchwandler/supertonicsynth/issues"
++
++[project.optional-dependencies]
++cpu = ["onnxvoice[cpu]>=0.1.12,<0.2"]
++gpu = ["onnxvoice[gpu]>=0.1.12,<0.2"]
++directml = ["onnxvoice[directml]>=0.1.12,<0.2"]
++openvino = ["onnxvoice[openvino]>=0.1.12,<0.2"]
++playback = ["sounddevice>=0.5,<0.6"]
++dev = [
++  "pytest>=8",
++  "pytest-cov>=5",
++  "ruff>=0.16,<0.17",
++  "mypy>=1.11",
++  "build>=1",
++]
++
++[project.scripts]
++supertonicsynth = "supertonicsynth.__main__:main"
++
++[tool.setuptools.packages.find]
++where = ["."]
++include = ["supertonicsynth*"]
++
++[tool.setuptools.package-data]
++supertonicsynth = ["py.typed"]
++
++[tool.setuptools_scm]
++write_to = "supertonicsynth/_version.py"
++fallback_version = "0.0.0+unknown"
++
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++pythonpath = ["."]
++addopts = "-q --strict-markers"
++markers = [
++  "integration: tests requiring optional runtimes or external model assets",
++  "network: tests requiring network access",
++  "resource_heavy: tests requiring large model assets",
++]
++
++[tool.coverage.run]
++omit = ["supertonicsynth/_version.py"]
++
++[tool.ruff]
++target-version = "py310"
++line-length = 100
++
++[tool.ruff.lint]
++select = ["E", "F", "I", "UP", "B"]
++ignore = ["E501"]
++
++[tool.mypy]
++python_version = "3.13"
++packages = ["supertonicsynth"]
++check_untyped_defs = true
++disallow_untyped_defs = true
++warn_unused_ignores = true
++warn_redundant_casts = true
++no_implicit_optional = true
++ignore_missing_imports = true
+diff --git a/supertonicsynth/__init__.py b/supertonicsynth/__init__.py
+new file mode 100644
+index 0000000..096ab6d
+--- /dev/null
++++ b/supertonicsynth/__init__.py
+@@ -0,0 +1,41 @@
++"""SupertonicSynth — Supertonic-3 synthesis backed by OnnxVoice."""
++
++try:
++    from ._version import __version__, __version_tuple__
++except ImportError:
++    __version__ = "0.0.0+unknown"
++    __version_tuple__ = (0, 0, 0)
++
++from .asset_manager import BundleAssetManager
++from .config import (
++    AVAILABLE_LANGUAGES,
++    DEFAULT_LANGUAGE,
++    DEFAULT_MODEL,
++    DEFAULT_VOICE,
++    SUPPORTED_LANGUAGES,
++    UNKNOWN_LANGUAGE,
++)
++from .convenience import synthesize
++from .errors import *
++from .runtime import SupertonicRuntime
++from .style import VoiceStyle, load_voice_style
++from .types import RuntimeDiagnostics, SynthesisConfig, SynthesisResult
++
++__all__ = [
++    "AVAILABLE_LANGUAGES",
++    "BundleAssetManager",
++    "DEFAULT_LANGUAGE",
++    "DEFAULT_MODEL",
++    "DEFAULT_VOICE",
++    "RuntimeDiagnostics",
++    "SUPPORTED_LANGUAGES",
++    "SupertonicRuntime",
++    "SynthesisConfig",
++    "SynthesisResult",
++    "UNKNOWN_LANGUAGE",
++    "VoiceStyle",
++    "__version__",
++    "__version_tuple__",
++    "load_voice_style",
++    "synthesize",
++]
+diff --git a/supertonicsynth/__main__.py b/supertonicsynth/__main__.py
+new file mode 100644
+index 0000000..79889b8
+--- /dev/null
++++ b/supertonicsynth/__main__.py
+@@ -0,0 +1,42 @@
++from __future__ import annotations
++import argparse
++from pathlib import Path
++from .runtime import SupertonicRuntime
++from .types import SynthesisConfig
++
++
++def build_parser() -> argparse.ArgumentParser:
++    parser = argparse.ArgumentParser(prog="supertonicsynth")
++    sub = parser.add_subparsers(dest="command", required=True)
++    synth = sub.add_parser("synthesize", help="synthesize text")
++    synth.add_argument("text")
++    synth.add_argument("-o", "--output", type=Path, required=True)
++    synth.add_argument("--model", default="supertonic-3")
++    synth.add_argument("--voice", default="M1")
++    synth.add_argument("--language", default="na")
++    synth.add_argument("--steps", type=int, default=5)
++    synth.add_argument("--speed", type=float, default=1.05)
++    synth.add_argument("--seed", type=int)
++    voices = sub.add_parser("voices", help="list installed bundle voices")
++    voices.add_argument("--model", default="supertonic-3")
++    return parser
++
++
++def main(argv: list[str] | None = None) -> int:
++    args = build_parser().parse_args(argv)
++    with SupertonicRuntime.from_pretrained(args.model) as runtime:
++        if args.command == "voices":
++            for name in runtime.voice_names:
++                print(name)
++            return 0
++        config = SynthesisConfig(steps=args.steps, speed=args.speed, seed=args.seed)
++        result = runtime.synthesize_text(
++            args.text, voice=args.voice, language=args.language, config=config
++        )
++        result.write_wav(args.output)
++        print(f"{args.output} ({result.duration:.2f}s, {result.sample_rate} Hz)")
++        return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/supertonicsynth/_onnxvoice.py b/supertonicsynth/_onnxvoice.py
+new file mode 100644
+index 0000000..2e1edb1
+--- /dev/null
++++ b/supertonicsynth/_onnxvoice.py
+@@ -0,0 +1,261 @@
++from __future__ import annotations
++
++from collections.abc import Callable, Mapping, Sequence
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any
++
++from .errors import (
++    AssetCacheError,
++    AssetDownloadError,
++    AssetError,
++    BundleNotFoundError,
++    CatalogUnavailableError,
++    ModelInferenceError,
++    OfflineAssetError,
++    OptionalDependencyError,
++    RuntimeCapabilityError,
++    SessionCreationError,
++)
++
++_COMPONENTS = ("duration_predictor", "text_encoder", "vector_estimator", "vocoder")
++
++
++@dataclass(frozen=True, slots=True)
++class ResolvedSupertonicBundle:
++    ref: str | None
++    bundle_id: str | None
++    config_path: Path
++    unicode_indexer_path: Path
++    model_paths: Mapping[str, Path]
++    style_paths: Mapping[str, Path]
++    sample_rate: int | None
++    source_revision: str | None
++    metadata: Mapping[str, Any]
++    installation: Any | None = None
++
++
++def _onnxvoice() -> Any:
++    try:
++        import onnxvoice
++    except ModuleNotFoundError as exc:
++        raise OptionalDependencyError(
++            "OnnxVoice with Supertonic support is required. Install supertonicsynth[cpu] or supertonicsynth[gpu]."
++        ) from exc
++    return onnxvoice
++
++
++def normalize_supertonic_ref(ref: str) -> str:
++    if not isinstance(ref, str) or not ref.strip():
++        raise BundleNotFoundError("Supertonic bundle reference must not be empty")
++    value = ref.strip()
++    if ":" not in value:
++        return f"supertonic:{value}"
++    system, item_id = value.split(":", 1)
++    if system.casefold() != "supertonic" or not item_id:
++        raise BundleNotFoundError(f"Not a Supertonic bundle reference: {ref!r}")
++    return f"supertonic:{item_id}"
++
++
++def normalize_provider_request(
++    providers: Sequence[Any] | str | None, provider_options: Mapping[str, Any] | None
++) -> tuple[str | Sequence[str] | None, Any | None]:
++    if providers is None or isinstance(providers, str):
++        return providers, provider_options
++    names: list[str] = []
++    options: list[dict[str, Any]] = []
++    explicit = False
++    for provider in providers:
++        if hasattr(provider, "name"):
++            names.append(str(provider.name))
++            value = dict(getattr(provider, "options", {}) or {})
++            options.append(value)
++            explicit = explicit or bool(value)
++        elif isinstance(provider, tuple):
++            name, raw = provider
++            names.append(str(name))
++            options.append(dict(raw or {}))
++            explicit = True
++        else:
++            names.append(str(provider))
++            options.append(dict(provider_options or {}))
++    if not names:
++        raise ValueError("providers must not be empty")
++    return names, options if explicit else provider_options
++
++
++def _map_error(exc: Exception, operation: str) -> Exception:
++    name = type(exc).__name__
++    message = str(exc) or name
++    if name in {"AssetNotFoundError", "NotInstalledError"}:
++        return BundleNotFoundError(message)
++    if name == "OfflineError":
++        return OfflineAssetError(message)
++    if name in {"IntegrityError", "ManifestError", "UnsafePathError", "LockError"}:
++        return AssetCacheError(message)
++    if name == "CatalogError":
++        return CatalogUnavailableError(message)
++    if name in {"RuntimeContractError", "CapabilityError", "UnsupportedSystemError"}:
++        return RuntimeCapabilityError(message)
++    if name == "OptionalDependencyError":
++        return OptionalDependencyError(message)
++    if operation == "infer":
++        return ModelInferenceError(f"Supertonic inference failed: {message}")
++    if operation == "open":
++        return SessionCreationError(f"Could not open Supertonic runtime: {message}")
++    return AssetDownloadError(message) if operation == "install" else AssetError(message)
++
++
++def _call(operation: str, fn: Callable[[], Any]) -> Any:
++    try:
++        return fn()
++    except (FileNotFoundError, ValueError, TypeError):
++        raise
++    except Exception as exc:
++        mapped = _map_error(exc, operation)
++        raise mapped from exc
++
++
++def _local_files(root: Path) -> dict[str, Path]:
++    files = {
++        "config": root / "onnx" / "tts.json",
++        "unicode_indexer": root / "onnx" / "unicode_indexer.json",
++        **{component: root / "onnx" / f"{component}.onnx" for component in _COMPONENTS},
++    }
++    styles = root / "voice_styles"
++    if styles.is_dir():
++        for path in sorted(styles.glob("*.json")):
++            files[f"voice_style:{path.stem}"] = path
++    missing = [
++        str(path)
++        for key, path in files.items()
++        if not key.startswith("voice_style:") and not path.is_file()
++    ]
++    if missing:
++        raise FileNotFoundError("Missing Supertonic bundle files: " + ", ".join(missing))
++    return files
++
++
++def open_local_bundle(
++    root: str | Path,
++    *,
++    providers: Sequence[Any] | str | None = None,
++    provider_options: Mapping[str, Any] | None = None,
++    session_options: Any | None = None,
++) -> tuple[Any, ResolvedSupertonicBundle]:
++    root_path = Path(root)
++    requested, options = normalize_provider_request(providers, provider_options)
++    module = _onnxvoice()
++    runtime = _call(
++        "open",
++        lambda: module.open_local(
++            system="supertonic",
++            files=_local_files(root_path),
++            metadata={"managed": False, "bundle_name": root_path.name},
++            runtime={"layout": "supertonic-3-v1"},
++            sample_rate=44_100,
++            providers=requested,
++            provider_options=options,
++            session_options=session_options,
++        ),
++    )
++    installation = getattr(runtime, "installation", None)
++    resolved = (
++        installation_to_bundle_info(installation, ref=None)
++        if installation is not None
++        else ResolvedSupertonicBundle(
++            ref=None,
++            bundle_id=root_path.name,
++            config_path=root_path / "onnx/tts.json",
++            unicode_indexer_path=root_path / "onnx/unicode_indexer.json",
++            model_paths={c: root_path / "onnx" / f"{c}.onnx" for c in _COMPONENTS},
++            style_paths={p.stem: p for p in sorted((root_path / "voice_styles").glob("*.json"))},
++            sample_rate=44_100,
++            source_revision=None,
++            metadata={"managed": False},
++            installation=None,
++        )
++    )
++    return runtime, resolved
++
++
++def install_pretrained_bundle(
++    ref: str,
++    *,
++    cache_dir: str | Path | None = None,
++    offline: bool = False,
++    refresh_catalog: bool = False,
++    force_download: bool = False,
++    progress: Any | None = None,
++) -> ResolvedSupertonicBundle:
++    normalized = normalize_supertonic_ref(ref)
++    module = _onnxvoice()
++    manager = module.OnnxVoice(cache_dir=cache_dir, offline=offline)
++    installation = _call(
++        "install",
++        lambda: manager.install(
++            normalized, refresh=refresh_catalog, force=force_download, progress=progress
++        ),
++    )
++    return installation_to_bundle_info(installation, ref=normalized)
++
++
++def open_installed_bundle(
++    resolved: ResolvedSupertonicBundle,
++    *,
++    cache_dir: str | Path | None = None,
++    providers: Sequence[Any] | str | None = None,
++    provider_options: Mapping[str, Any] | None = None,
++    session_options: Any | None = None,
++) -> Any:
++    requested, options = normalize_provider_request(providers, provider_options)
++    module = _onnxvoice()
++    manager = module.OnnxVoice(cache_dir=cache_dir)
++    return _call(
++        "open",
++        lambda: manager.open(
++            resolved.installation,
++            providers=requested,
++            provider_options=options,
++            session_options=session_options,
++        ),
++    )
++
++
++def installation_to_bundle_info(installation: Any, *, ref: str | None) -> ResolvedSupertonicBundle:
++    if installation is None:
++        raise RuntimeCapabilityError("Supertonic installation is unavailable")
++    try:
++        config = Path(installation.artifact("config").path)
++        indexer = Path(installation.artifact("unicode_indexer").path)
++        models = {
++            component: Path(installation.artifact("model", component=component).path)
++            for component in _COMPONENTS
++        }
++    except (KeyError, AttributeError) as exc:
++        raise RuntimeCapabilityError(
++            "Supertonic installation is missing required model/config artifacts"
++        ) from exc
++    styles: dict[str, Path] = {}
++    for artifact in getattr(installation, "artifacts", ()):
++        if getattr(artifact, "role", None) == "voice_style" and getattr(
++            artifact, "component", None
++        ):
++            styles[str(artifact.component)] = Path(artifact.path)
++    raw = dict(getattr(installation, "metadata", {}) or {})
++    return ResolvedSupertonicBundle(
++        ref=ref or getattr(installation, "ref", None),
++        bundle_id=getattr(installation, "id", None),
++        config_path=config,
++        unicode_indexer_path=indexer,
++        model_paths=models,
++        style_paths=styles,
++        sample_rate=getattr(installation, "sample_rate", None),
++        source_revision=str(raw.get("source_revision")) if raw.get("source_revision") else None,
++        metadata=raw,
++        installation=installation,
++    )
++
++
++def available_providers() -> tuple[str, ...]:
++    return tuple(_call("open", lambda: _onnxvoice().available_providers()))
+diff --git a/supertonicsynth/asset_manager.py b/supertonicsynth/asset_manager.py
+new file mode 100644
+index 0000000..0836140
+--- /dev/null
++++ b/supertonicsynth/asset_manager.py
+@@ -0,0 +1,62 @@
++from __future__ import annotations
++import os
++from pathlib import Path
++from typing import Any
++from ._onnxvoice import normalize_supertonic_ref
++from .errors import OptionalDependencyError
++
++
++def _offline_value(value: bool | None) -> bool:
++    if value is not None:
++        return value
++    return os.environ.get("SUPERTONICSYNTH_OFFLINE", "").casefold() in {"1", "true", "yes", "on"}
++
++
++class BundleAssetManager:
++    """Thin compatibility facade over OnnxVoice's Supertonic catalog/store."""
++
++    def __init__(
++        self,
++        cache_dir: str | Path | None = None,
++        *,
++        catalog_path: str | Path | None = None,
++        offline: bool | None = None,
++        progress: Any | None = None,
++    ) -> None:
++        self.cache_dir = Path(cache_dir) if cache_dir is not None else None
++        self.catalog_path = Path(catalog_path) if catalog_path is not None else None
++        self.offline = _offline_value(offline)
++        self.progress = progress
++
++    def _manager(self) -> Any:
++        try:
++            import onnxvoice
++        except ModuleNotFoundError as exc:
++            raise OptionalDependencyError(
++                "OnnxVoice is required for Supertonic bundle assets"
++            ) from exc
++        sources = {"supertonic": str(self.catalog_path)} if self.catalog_path is not None else None
++        return onnxvoice.OnnxVoice(
++            cache_dir=self.cache_dir, catalog_sources=sources, offline=self.offline
++        )
++
++    def list_bundles(self, *, refresh: bool = False) -> tuple[Any, ...]:
++        return tuple(self._manager().list("supertonic", refresh=refresh, progress=self.progress))
++
++    def resolve_bundle(
++        self,
++        bundle: str = "supertonic-3",
++        *,
++        download: bool = True,
++        refresh_catalog: bool = False,
++        force_download: bool = False,
++    ) -> Any:
++        manager = self._manager()
++        ref = normalize_supertonic_ref(bundle)
++        return (
++            manager.install(
++                ref, refresh=refresh_catalog, force=force_download, progress=self.progress
++            )
++            if download
++            else manager.resolve(ref)
++        )
+diff --git a/supertonicsynth/config.py b/supertonicsynth/config.py
+new file mode 100644
+index 0000000..5361ac3
+--- /dev/null
++++ b/supertonicsynth/config.py
+@@ -0,0 +1,51 @@
++from __future__ import annotations
++
++SUPPORTED_LANGUAGES = (
++    "en",
++    "ko",
++    "ja",
++    "ar",
++    "bg",
++    "cs",
++    "da",
++    "de",
++    "el",
++    "es",
++    "et",
++    "fi",
++    "fr",
++    "hi",
++    "hr",
++    "hu",
++    "id",
++    "it",
++    "lt",
++    "lv",
++    "nl",
++    "pl",
++    "pt",
++    "ro",
++    "ru",
++    "sk",
++    "sl",
++    "sv",
++    "tr",
++    "uk",
++    "vi",
++)
++UNKNOWN_LANGUAGE = "na"
++AVAILABLE_LANGUAGES = (*SUPPORTED_LANGUAGES, UNKNOWN_LANGUAGE)
++DEFAULT_MODEL = "supertonic-3"
++DEFAULT_VOICE = "M1"
++DEFAULT_LANGUAGE = UNKNOWN_LANGUAGE
++DEFAULT_STEPS = 5
++DEFAULT_SPEED = 1.05
++DEFAULT_MAX_CHUNK_LENGTH = 300
++DEFAULT_MAX_CHUNK_LENGTH_KO = 120
++DEFAULT_SILENCE_DURATION = 0.3
++MIN_SPEED = 0.7
++MAX_SPEED = 2.0
++MIN_STEPS = 1
++MAX_STEPS = 100
++MAX_TEXT_LENGTH = 100_000
++SAMPLE_RATE = 44_100
+diff --git a/supertonicsynth/convenience.py b/supertonicsynth/convenience.py
+new file mode 100644
+index 0000000..1d2bae5
+--- /dev/null
++++ b/supertonicsynth/convenience.py
+@@ -0,0 +1,21 @@
++from __future__ import annotations
++from pathlib import Path
++from typing import Any
++from .runtime import SupertonicRuntime
++from .types import SynthesisConfig, SynthesisResult
++
++
++def synthesize(
++    text: str,
++    *,
++    model: str = "supertonic-3",
++    voice: str = "M1",
++    language: str = "na",
++    config: SynthesisConfig | None = None,
++    cache_dir: str | Path | None = None,
++    **runtime_options: Any,
++) -> SynthesisResult:
++    with SupertonicRuntime.from_pretrained(
++        model, cache_dir=cache_dir, **runtime_options
++    ) as runtime:
++        return runtime.synthesize_text(text, voice=voice, language=language, config=config)
+diff --git a/supertonicsynth/errors.py b/supertonicsynth/errors.py
+new file mode 100644
+index 0000000..e3c3096
+--- /dev/null
++++ b/supertonicsynth/errors.py
+@@ -0,0 +1,58 @@
++class SupertonicSynthError(Exception):
++    """Base error for SupertonicSynth."""
++
++
++class OptionalDependencyError(SupertonicSynthError):
++    pass
++
++
++class AssetError(SupertonicSynthError):
++    pass
++
++
++class AssetDownloadError(AssetError):
++    pass
++
++
++class AssetCacheError(AssetError):
++    pass
++
++
++class CatalogUnavailableError(AssetError):
++    pass
++
++
++class BundleNotFoundError(AssetError):
++    pass
++
++
++class OfflineAssetError(AssetError):
++    pass
++
++
++class SessionCreationError(SupertonicSynthError):
++    pass
++
++
++class ModelInferenceError(SupertonicSynthError):
++    pass
++
++
++class RuntimeCapabilityError(SupertonicSynthError):
++    pass
++
++
++class InvalidRequestError(SupertonicSynthError):
++    pass
++
++
++class InvalidLanguageError(InvalidRequestError):
++    pass
++
++
++class InvalidVoiceStyleError(InvalidRequestError):
++    pass
++
++
++class ClosedRuntimeError(SupertonicSynthError):
++    pass
+diff --git a/supertonicsynth/frontend.py b/supertonicsynth/frontend.py
+new file mode 100644
+index 0000000..500fa94
+--- /dev/null
++++ b/supertonicsynth/frontend.py
+@@ -0,0 +1,143 @@
++from __future__ import annotations
++
++import json
++import re
++from dataclasses import dataclass
++from pathlib import Path
++from unicodedata import normalize
++
++import numpy as np
++
++from .config import AVAILABLE_LANGUAGES
++from .errors import InvalidLanguageError, InvalidRequestError
++
++_EMOJI_PATTERN = re.compile(
++    "[\U0001f600-\U0001f64f\U0001f300-\U0001f5ff\U0001f680-\U0001f6ff"
++    "\U0001f700-\U0001f77f\U0001f780-\U0001f7ff\U0001f800-\U0001f8ff"
++    "\U0001f900-\U0001f9ff\U0001fa00-\U0001fa6f\U0001fa70-\U0001faff"
++    "\u2600-\u26ff\u2700-\u27bf\U0001f1e6-\U0001f1ff]+",
++    flags=re.UNICODE,
++)
++_SYMBOL_REPLACEMENTS = {
++    "\u2013": "-",
++    "\u2011": "-",
++    "\u2014": "-",
++    "\u00af": " ",
++    "_": " ",
++    "\u201c": '"',
++    "\u201d": '"',
++    "\u2018": "'",
++    "\u2019": "'",
++    "\u00b4": "'",
++    "`": "'",
++    "[": " ",
++    "]": " ",
++    "|": " ",
++    "/": " ",
++    "#": " ",
++    "→": " ",
++    "←": " ",
++}
++_SPECIAL_SYMBOLS_PATTERN = re.compile(r"[♥☆♡©\\]")
++_DUPLICATE_QUOTES_PATTERN = re.compile(r'(["\'`])\1+')
++_WHITESPACE_PATTERN = re.compile(r"\s+")
++_ENDING_PUNCTUATION_PATTERN = re.compile(r"[.!?;:,'\"')\]}…。」』】〉》›»]$")
++
++
++@dataclass(frozen=True, slots=True)
++class FrontendBatch:
++    text: str
++    text_ids: np.ndarray
++    text_mask: np.ndarray
++
++
++class SupertonicFrontend:
++    """Archive-compatible Supertonic-3 Unicode frontend."""
++
++    def __init__(self, unicode_indexer_path: str | Path) -> None:
++        path = Path(unicode_indexer_path)
++        try:
++            indexer = json.loads(path.read_text(encoding="utf-8"))
++        except (OSError, json.JSONDecodeError) as exc:
++            raise InvalidRequestError(f"Could not read Unicode indexer {path}: {exc}") from exc
++        if not isinstance(indexer, list) or not indexer:
++            raise InvalidRequestError("Unicode indexer must be a non-empty list")
++        self.indexer = indexer
++        self.supported_chars = {
++            chr(i) for i, token in enumerate(indexer) if isinstance(token, int) and token >= 0
++        }
++
++    @staticmethod
++    def _normalize_symbols(text: str) -> str:
++        for old, new in _SYMBOL_REPLACEMENTS.items():
++            text = text.replace(old, new)
++        return text
++
++    def preprocess(self, text: str, language: str | None = None) -> str:
++        if not isinstance(text, str) or not text.strip():
++            raise InvalidRequestError("text cannot be empty")
++        if language is not None and language not in AVAILABLE_LANGUAGES:
++            raise InvalidLanguageError(
++                f"Unsupported language {language!r}; expected one of {', '.join(AVAILABLE_LANGUAGES)}"
++            )
++        text = normalize("NFKD", text)
++        text = _EMOJI_PATTERN.sub("", text)
++        text = self._normalize_symbols(text)
++        text = _SPECIAL_SYMBOLS_PATTERN.sub("", text)
++        text = (
++            text.replace("@", " at ")
++            .replace("e.g.,", "for example, ")
++            .replace("i.e.,", "that is, ")
++        )
++        for before, after in (
++            (" ,", ","),
++            (" .", "."),
++            (" !", "!"),
++            (" ?", "?"),
++            (" ;", ";"),
++            (" :", ":"),
++            (" '", "'"),
++        ):
++            text = text.replace(before, after)
++        text = _DUPLICATE_QUOTES_PATTERN.sub(r"\1", text)
++        text = _WHITESPACE_PATTERN.sub(" ", text).strip()
++        if not text:
++            raise InvalidRequestError("text is empty after normalization")
++        if not _ENDING_PUNCTUATION_PATTERN.search(text):
++            text += "."
++        if language is not None:
++            text = f"<{language}>{text}</{language}>"
++        return text
++
++    def encode(self, text: str, language: str | None = None) -> FrontendBatch:
++        normalized = self.preprocess(text, language)
++        ids: list[int] = []
++        unsupported: set[str] = set()
++        for char in normalized:
++            value = ord(char)
++            if value >= len(self.indexer):
++                unsupported.add(char)
++                continue
++            token = self.indexer[value]
++            if not isinstance(token, int) or token < 0:
++                unsupported.add(char)
++                continue
++            ids.append(token)
++        if unsupported:
++            rendered = " ".join(repr(v) for v in sorted(unsupported))
++            raise InvalidRequestError(f"unsupported character(s): {rendered}")
++        text_ids = np.asarray(ids, dtype=np.int64)
++        text_mask = np.ones((1, 1, len(ids)), dtype=np.float32)
++        return FrontendBatch(text=normalized, text_ids=text_ids, text_mask=text_mask)
++
++    def validate_text(self, text: str) -> tuple[bool, tuple[str, ...]]:
++        unsupported: set[str] = set()
++        for char in set(text):
++            try:
++                normalized = self.preprocess(char, None)
++            except InvalidRequestError:
++                continue
++            for value in normalized:
++                if value not in self.supported_chars:
++                    unsupported.add(char)
++        return not unsupported, tuple(sorted(unsupported))
+diff --git a/supertonicsynth/py.typed b/supertonicsynth/py.typed
+new file mode 100644
+index 0000000..e69de29
+diff --git a/supertonicsynth/runtime.py b/supertonicsynth/runtime.py
+new file mode 100644
+index 0000000..f0db5f1
+--- /dev/null
++++ b/supertonicsynth/runtime.py
+@@ -0,0 +1,235 @@
++from __future__ import annotations
++
++from collections.abc import Mapping, Sequence
++from pathlib import Path
++from typing import Any
++
++import numpy as np
++
++from ._onnxvoice import (
++    ResolvedSupertonicBundle,
++    install_pretrained_bundle,
++    open_installed_bundle,
++    open_local_bundle,
++)
++from .config import (
++    AVAILABLE_LANGUAGES,
++    DEFAULT_LANGUAGE,
++    DEFAULT_MAX_CHUNK_LENGTH,
++    DEFAULT_MAX_CHUNK_LENGTH_KO,
++    DEFAULT_MODEL,
++    DEFAULT_SILENCE_DURATION,
++    DEFAULT_SPEED,
++    DEFAULT_STEPS,
++    DEFAULT_VOICE,
++    MAX_TEXT_LENGTH,
++)
++from .errors import (
++    ClosedRuntimeError,
++    InvalidLanguageError,
++    InvalidRequestError,
++    InvalidVoiceStyleError,
++    ModelInferenceError,
++)
++from .frontend import SupertonicFrontend
++from .style import VoiceStyle, load_voice_style
++from .text_split import chunk_text
++from .types import RuntimeDiagnostics, SynthesisConfig, SynthesisResult
++
++
++class SupertonicRuntime:
++    def __init__(
++        self, runtime: Any, bundle: ResolvedSupertonicBundle, *, owns_runtime: bool = True
++    ) -> None:
++        self._runtime = runtime
++        self.bundle = bundle
++        self._owns_runtime = owns_runtime
++        self._closed = False
++        self.frontend = SupertonicFrontend(bundle.unicode_indexer_path)
++        self.sample_rate = int(bundle.sample_rate or 44_100)
++
++    @classmethod
++    def from_pretrained(
++        cls,
++        ref: str = DEFAULT_MODEL,
++        *,
++        cache_dir: str | Path | None = None,
++        offline: bool = False,
++        refresh_catalog: bool = False,
++        force_download: bool = False,
++        providers: Sequence[Any] | str | None = None,
++        provider_options: Mapping[str, Any] | None = None,
++        session_options: Any | None = None,
++        progress: Any | None = None,
++    ) -> SupertonicRuntime:
++        resolved = install_pretrained_bundle(
++            ref,
++            cache_dir=cache_dir,
++            offline=offline,
++            refresh_catalog=refresh_catalog,
++            force_download=force_download,
++            progress=progress,
++        )
++        runtime = open_installed_bundle(
++            resolved,
++            cache_dir=cache_dir,
++            providers=providers,
++            provider_options=provider_options,
++            session_options=session_options,
++        )
++        return cls(runtime, resolved)
++
++    @classmethod
++    def from_local(
++        cls,
++        root: str | Path,
++        *,
++        providers: Sequence[Any] | str | None = None,
++        provider_options: Mapping[str, Any] | None = None,
++        session_options: Any | None = None,
++    ) -> SupertonicRuntime:
++        runtime, resolved = open_local_bundle(
++            root,
++            providers=providers,
++            provider_options=provider_options,
++            session_options=session_options,
++        )
++        return cls(runtime, resolved)
++
++    @property
++    def voice_names(self) -> tuple[str, ...]:
++        return tuple(sorted(self.bundle.style_paths))
++
++    def get_voice_style(self, voice: str = DEFAULT_VOICE) -> VoiceStyle:
++        try:
++            path = self.bundle.style_paths[voice]
++        except KeyError as exc:
++            available = ", ".join(self.voice_names) or "none"
++            raise InvalidVoiceStyleError(
++                f"Unknown voice style {voice!r}; available: {available}"
++            ) from exc
++        return load_voice_style(path, name=voice)
++
++    def synthesize_text(
++        self,
++        text: str,
++        *,
++        voice: str | VoiceStyle = DEFAULT_VOICE,
++        language: str = DEFAULT_LANGUAGE,
++        config: SynthesisConfig | None = None,
++        steps: int | None = None,
++        speed: float | None = None,
++        max_chunk_length: int | None = None,
++        silence_duration: float | None = None,
++        seed: int | None = None,
++    ) -> SynthesisResult:
++        if self._closed:
++            raise ClosedRuntimeError("runtime is closed")
++        if not isinstance(text, str) or not text.strip():
++            raise InvalidRequestError("text cannot be empty")
++        if len(text) > MAX_TEXT_LENGTH:
++            raise InvalidRequestError(f"text exceeds maximum length {MAX_TEXT_LENGTH}")
++        if language not in AVAILABLE_LANGUAGES:
++            raise InvalidLanguageError(f"Unsupported language {language!r}")
++        base = config or SynthesisConfig()
++        effective = SynthesisConfig(
++            steps=base.steps if steps is None else steps,
++            speed=base.speed if speed is None else speed,
++            max_chunk_length=base.max_chunk_length
++            if max_chunk_length is None
++            else max_chunk_length,
++            silence_duration=base.silence_duration
++            if silence_duration is None
++            else silence_duration,
++            seed=base.seed if seed is None else seed,
++        )
++        style = self.get_voice_style(voice) if isinstance(voice, str) else voice
++        limit = effective.max_chunk_length or (
++            DEFAULT_MAX_CHUNK_LENGTH_KO if language == "ko" else DEFAULT_MAX_CHUNK_LENGTH
++        )
++        chunks = chunk_text(text, limit)
++        if not chunks:
++            raise InvalidRequestError("text produced no synthesis chunks")
++        audio_parts: list[np.ndarray] = []
++        for index, chunk in enumerate(chunks):
++            batch = self.frontend.encode(chunk, language)
++            call_seed = None if effective.seed is None else effective.seed + index
++            try:
++                result = self._runtime.infer(
++                    batch.text_ids.tolist(),
++                    text_mask=batch.text_mask,
++                    style_ttl=style.ttl,
++                    style_dp=style.dp,
++                    steps=effective.steps,
++                    speed=effective.speed,
++                    seed=call_seed,
++                )
++            except Exception as exc:
++                if isinstance(exc, (ValueError, TypeError)):
++                    raise
++                raise ModelInferenceError(str(exc)) from exc
++            audio = np.asarray(getattr(result, "audio"), dtype=np.float32).squeeze()
++            if audio.ndim != 1 or audio.size == 0 or not np.all(np.isfinite(audio)):
++                raise ModelInferenceError("runtime returned invalid audio")
++            result_rate = int(getattr(result, "sample_rate", self.sample_rate))
++            if result_rate != self.sample_rate:
++                raise ModelInferenceError(
++                    f"runtime sample rate changed from {self.sample_rate} to {result_rate}"
++                )
++            audio_parts.append(audio)
++        if effective.silence_duration > 0 and len(audio_parts) > 1:
++            silence = np.zeros(
++                int(round(effective.silence_duration * self.sample_rate)), dtype=np.float32
++            )
++            interleaved: list[np.ndarray] = []
++            for index, audio in enumerate(audio_parts):
++                interleaved.append(audio)
++                if index + 1 < len(audio_parts):
++                    interleaved.append(silence)
++            audio_parts = interleaved
++        audio = np.concatenate(audio_parts).astype(np.float32, copy=False)
++        voice_name = style.name if isinstance(voice, VoiceStyle) else voice
++        return SynthesisResult(
++            audio=audio,
++            sample_rate=self.sample_rate,
++            duration=float(audio.size / self.sample_rate),
++            chunks=len(chunks),
++            metadata={
++                "bundle": self.bundle.ref or self.bundle.bundle_id,
++                "voice": voice_name,
++                "language": language,
++                "steps": effective.steps,
++                "speed": effective.speed,
++                "seed": effective.seed,
++            },
++        )
++
++    def diagnostics(self) -> RuntimeDiagnostics:
++        raw = self._runtime.diagnostics() if hasattr(self._runtime, "diagnostics") else None
++        sessions: tuple[str, ...] = ()
++        providers: tuple[str, ...] = ()
++        if raw is not None:
++            raw_sessions = getattr(raw, "sessions", ())
++            sessions = tuple(
++                str(getattr(item, "component", getattr(item, "name", item)))
++                for item in raw_sessions
++            )
++            providers = tuple(getattr(self._runtime, "providers", ()) or ())
++        return RuntimeDiagnostics(
++            bundle_ref=self.bundle.ref, providers_requested=providers, sessions=sessions, raw=raw
++        )
++
++    def close(self) -> None:
++        if self._closed:
++            return
++        self._closed = True
++        if self._owns_runtime:
++            close = getattr(self._runtime, "close", None)
++            if close is not None:
++                close()
++
++    def __enter__(self) -> SupertonicRuntime:
++        return self
++
++    def __exit__(self, *_: object) -> None:
++        self.close()
+diff --git a/supertonicsynth/style.py b/supertonicsynth/style.py
+new file mode 100644
+index 0000000..dd240c9
+--- /dev/null
++++ b/supertonicsynth/style.py
+@@ -0,0 +1,55 @@
++from __future__ import annotations
++
++import json
++from dataclasses import dataclass
++from pathlib import Path
++
++import numpy as np
++
++from .errors import InvalidVoiceStyleError
++
++
++@dataclass(frozen=True, slots=True)
++class VoiceStyle:
++    ttl: np.ndarray
++    dp: np.ndarray
++    name: str | None = None
++    path: Path | None = None
++
++
++def _array(value: object, key: str) -> np.ndarray:
++    if not isinstance(value, dict):
++        raise InvalidVoiceStyleError(f"{key} must be an object")
++    dims = value.get("dims")
++    data = value.get("data")
++    if (
++        not isinstance(dims, list)
++        or not dims
++        or not all(isinstance(v, int) and v > 0 for v in dims)
++    ):
++        raise InvalidVoiceStyleError(f"{key}.dims must contain positive integers")
++    try:
++        array = np.asarray(data, dtype=np.float32).reshape(*dims)
++    except (TypeError, ValueError) as exc:
++        raise InvalidVoiceStyleError(f"{key} has invalid data/dims: {exc}") from exc
++    if array.shape[0] != 1:
++        raise InvalidVoiceStyleError(f"{key} batch dimension must be 1")
++    if not np.all(np.isfinite(array)):
++        raise InvalidVoiceStyleError(f"{key} contains non-finite values")
++    return np.ascontiguousarray(array)
++
++
++def load_voice_style(path: str | Path, *, name: str | None = None) -> VoiceStyle:
++    source = Path(path)
++    try:
++        data = json.loads(source.read_text(encoding="utf-8"))
++    except (OSError, json.JSONDecodeError) as exc:
++        raise InvalidVoiceStyleError(f"Could not read voice style {source}: {exc}") from exc
++    if not isinstance(data, dict):
++        raise InvalidVoiceStyleError("voice style JSON must contain an object")
++    try:
++        ttl = _array(data["style_ttl"], "style_ttl")
++        dp = _array(data["style_dp"], "style_dp")
++    except KeyError as exc:
++        raise InvalidVoiceStyleError(f"voice style is missing {exc.args[0]!r}") from exc
++    return VoiceStyle(ttl=ttl, dp=dp, name=name or source.stem, path=source)
+diff --git a/supertonicsynth/text_split.py b/supertonicsynth/text_split.py
+new file mode 100644
+index 0000000..e268de0
+--- /dev/null
++++ b/supertonicsynth/text_split.py
+@@ -0,0 +1,31 @@
++from __future__ import annotations
++import re
++
++_COMMON_ABBREVIATIONS_PATTERN = (
++    r"(?<!Mr\.)(?<!Mrs\.)(?<!Ms\.)(?<!Dr\.)(?<!Prof\.)(?<!Sr\.)(?<!Jr\.)"
++    r"(?<!Ph\.D\.)(?<!etc\.)(?<!e\.g\.)(?<!i\.e\.)(?<!vs\.)(?<!Inc\.)(?<!Ltd\.)"
++    r"(?<!Co\.)(?<!Corp\.)(?<!St\.)(?<!Ave\.)(?<!Blvd\.)(?<!\b[A-Z]\.)(?<=[.!?])\s+"
++)
++
++
++def chunk_text(text: str, max_len: int = 300) -> list[str]:
++    if max_len < 10:
++        raise ValueError("max_len must be at least 10")
++    paragraphs = [p.strip() for p in re.split(r"\n\s*\n+", text.strip()) if p.strip()]
++    chunks: list[str] = []
++    for paragraph in paragraphs:
++        sentences = re.split(_COMMON_ABBREVIATIONS_PATTERN, paragraph)
++        current = ""
++        for sentence in sentences:
++            sentence = sentence.strip()
++            if not sentence:
++                continue
++            if len(current) + len(sentence) + (1 if current else 0) <= max_len:
++                current += (" " if current else "") + sentence
++            else:
++                if current:
++                    chunks.append(current.strip())
++                current = sentence
++        if current:
++            chunks.append(current.strip())
++    return chunks
+diff --git a/supertonicsynth/types.py b/supertonicsynth/types.py
+new file mode 100644
+index 0000000..0a891e2
+--- /dev/null
++++ b/supertonicsynth/types.py
+@@ -0,0 +1,61 @@
++from __future__ import annotations
++
++import wave
++from dataclasses import dataclass, field
++from pathlib import Path
++from typing import Any
++from collections.abc import Mapping
++
++import numpy as np
++
++from .config import MAX_SPEED, MAX_STEPS, MIN_SPEED, MIN_STEPS
++
++
++@dataclass(frozen=True, slots=True)
++class SynthesisConfig:
++    steps: int = 5
++    speed: float = 1.05
++    max_chunk_length: int | None = None
++    silence_duration: float = 0.3
++    seed: int | None = None
++
++    def __post_init__(self) -> None:
++        if not MIN_STEPS <= self.steps <= MAX_STEPS:
++            raise ValueError(f"steps must be between {MIN_STEPS} and {MAX_STEPS}")
++        if not MIN_SPEED <= self.speed <= MAX_SPEED:
++            raise ValueError(f"speed must be between {MIN_SPEED} and {MAX_SPEED}")
++        if self.max_chunk_length is not None and self.max_chunk_length < 10:
++            raise ValueError("max_chunk_length must be at least 10")
++        if self.silence_duration < 0:
++            raise ValueError("silence_duration must be non-negative")
++
++
++@dataclass(frozen=True, slots=True)
++class SynthesisResult:
++    audio: np.ndarray
++    sample_rate: int
++    duration: float
++    chunks: int
++    metadata: Mapping[str, Any] = field(default_factory=dict)
++
++    def pcm16(self) -> np.ndarray:
++        audio = np.asarray(self.audio, dtype=np.float32).reshape(-1)
++        return (np.clip(audio, -1.0, 1.0) * 32767.0).astype(np.int16)
++
++    def write_wav(self, path: str | Path) -> Path:
++        target = Path(path)
++        target.parent.mkdir(parents=True, exist_ok=True)
++        with wave.open(str(target), "wb") as wav:
++            wav.setnchannels(1)
++            wav.setsampwidth(2)
++            wav.setframerate(self.sample_rate)
++            wav.writeframes(self.pcm16().tobytes())
++        return target
++
++
++@dataclass(frozen=True, slots=True)
++class RuntimeDiagnostics:
++    bundle_ref: str | None
++    providers_requested: tuple[str, ...]
++    sessions: tuple[str, ...]
++    raw: Any = None
+diff --git a/tests/test_config.py b/tests/test_config.py
+new file mode 100644
+index 0000000..6a47345
+--- /dev/null
++++ b/tests/test_config.py
+@@ -0,0 +1,7 @@
++from supertonicsynth.config import AVAILABLE_LANGUAGES
++
++
++def test_languages():
++    assert len(AVAILABLE_LANGUAGES) == 32
++    assert "en" in AVAILABLE_LANGUAGES
++    assert "na" in AVAILABLE_LANGUAGES
+diff --git a/tests/test_frontend.py b/tests/test_frontend.py
+new file mode 100644
+index 0000000..8d4de68
+--- /dev/null
++++ b/tests/test_frontend.py
+@@ -0,0 +1,17 @@
++import json
++import numpy as np
++from supertonicsynth.frontend import SupertonicFrontend
++
++
++def make_indexer(path):
++    path.write_text(json.dumps(list(range(128))))
++
++
++def test_encode_with_language(tmp_path):
++    path = tmp_path / "unicode_indexer.json"
++    make_indexer(path)
++    frontend = SupertonicFrontend(path)
++    batch = frontend.encode("hello", "en")
++    assert batch.text.startswith("<en>")
++    assert batch.text_ids.dtype == np.int64
++    assert batch.text_mask.shape == (1, 1, len(batch.text_ids))
+diff --git a/tests/test_runtime_fake.py b/tests/test_runtime_fake.py
+new file mode 100644
+index 0000000..c177d77
+--- /dev/null
++++ b/tests/test_runtime_fake.py
+@@ -0,0 +1,45 @@
++from types import SimpleNamespace
++import json
++import numpy as np
++from supertonicsynth._onnxvoice import ResolvedSupertonicBundle
++from supertonicsynth.runtime import SupertonicRuntime
++
++
++class FakeRuntime:
++    def __init__(self):
++        self.calls = []
++        self.closed = False
++
++    def infer(self, token_ids, **kwargs):
++        self.calls.append((token_ids, kwargs))
++        return SimpleNamespace(audio=np.ones(100, dtype=np.float32) * 0.1, sample_rate=1000)
++
++    def close(self):
++        self.closed = True
++
++
++def test_runtime_fake(tmp_path):
++    indexer = tmp_path / "unicode_indexer.json"
++    indexer.write_text(json.dumps(list(range(128))))
++    config = tmp_path / "tts.json"
++    config.write_text("{}")
++    style = tmp_path / "M1.json"
++    style.write_text(
++        json.dumps(
++            {
++                "style_ttl": {"dims": [1, 2], "data": [[1, 2]]},
++                "style_dp": {"dims": [1, 2], "data": [[3, 4]]},
++            }
++        )
++    )
++    bundle = ResolvedSupertonicBundle(
++        None, "test", config, indexer, {}, {"M1": style}, 1000, None, {}
++    )
++    fake = FakeRuntime()
++    runtime = SupertonicRuntime(fake, bundle)
++    result = runtime.synthesize_text("hello", voice="M1", language="en", seed=4)
++    assert result.sample_rate == 1000
++    assert result.audio.size == 100
++    assert fake.calls[0][1]["seed"] == 4
++    runtime.close()
++    assert fake.closed
+diff --git a/tests/test_style.py b/tests/test_style.py
+new file mode 100644
+index 0000000..2c27028
+--- /dev/null
++++ b/tests/test_style.py
+@@ -0,0 +1,19 @@
++import json
++import numpy as np
++from supertonicsynth.style import load_voice_style
++
++
++def test_load_style(tmp_path):
++    path = tmp_path / "M1.json"
++    path.write_text(
++        json.dumps(
++            {
++                "style_ttl": {"dims": [1, 2], "data": [[1, 2]]},
++                "style_dp": {"dims": [1, 2], "data": [[3, 4]]},
++            }
++        )
++    )
++    style = load_voice_style(path)
++    assert style.name == "M1"
++    assert style.ttl.dtype == np.float32
++    assert style.dp.shape == (1, 2)
+diff --git a/tests/test_text_split.py b/tests/test_text_split.py
+new file mode 100644
+index 0000000..5dce128
+--- /dev/null
++++ b/tests/test_text_split.py
+@@ -0,0 +1,7 @@
++from supertonicsynth.text_split import chunk_text
++
++
++def test_chunk_text():
++    chunks = chunk_text("First sentence. Second sentence. Third sentence.", 30)
++    assert len(chunks) >= 2
++    assert all(chunks)
+diff --git a/tests/test_types.py b/tests/test_types.py
+new file mode 100644
+index 0000000..d0e4ff3
+--- /dev/null
++++ b/tests/test_types.py
+@@ -0,0 +1,16 @@
++import numpy as np
++import pytest
++from supertonicsynth.types import SynthesisConfig, SynthesisResult
++
++
++def test_config_validation():
++    with pytest.raises(ValueError):
++        SynthesisConfig(steps=0)
++    with pytest.raises(ValueError):
++        SynthesisConfig(speed=3.0)
++
++
++def test_wav(tmp_path):
++    result = SynthesisResult(np.zeros(100, dtype=np.float32), 1000, 0.1, 1)
++    path = result.write_wav(tmp_path / "out.wav")
++    assert path.stat().st_size > 44

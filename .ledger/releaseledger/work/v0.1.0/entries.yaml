@@ -1,0 +1,105 @@
+schema: releaseledger.entry-batch.v1
+operation: create
+schema_version: 1
+object_type: release_entry_batch
+release_version: v0.1.0
+git_base_ref: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+git_base_sha: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+git_head_ref: 923c0a635a19bafe89172be84cbc85e8323ae10d
+git_head_sha: 923c0a635a19bafe89172be84cbc85e8323ae10d
+include_merges: nontrivial
+entries:
+  - kind: added
+    summary: Added the SupertonicSynth synthesis package with text chunking, voice and language selection, WAV output, and a CLI
+    body:
+      "SupertonicRuntime wraps the OnnxVoice supertonic adapter for text synthesis with
+      per-language conditioning, semantic voice refs, deterministic chunking, request-level
+      output gain, and synthesis metadata. Ships Apache-2.0 licensing, VCS-based packaging,
+      typed errors, examples, and a synthesize/voices CLI."
+    status: accepted
+    source_refs:
+      - git:70688c003a35e495cde226ecee118d4ebb3b911f
+      - git:1ef14f0de10cc52db0243d5a72525ecc6f8e92b9
+    paths:
+      - LICENSE
+      - README.md
+      - pyproject.toml
+      - supertonicsynth/__init__.py
+      - supertonicsynth/__main__.py
+      - supertonicsynth/runtime.py
+      - supertonicsynth/types.py
+      - supertonicsynth/errors.py
+      - supertonicsynth/text_split.py
+    sources:
+      - git:70688c003a35e495cde226ecee118d4ebb3b911f
+      - git:1ef14f0de10cc52db0243d5a72525ecc6f8e92b9
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: added
+    summary: Added static voice level calibration with catalog or explicit dB gain, peak normalization, and voice level metadata
+    body:
+      "VoiceLevelConfig selects an offline calibrated static gain per semantic voice ref
+      and language, with an explicit dB override taking precedence. Peak normalization and
+      request-level output gain stay separate controls. Includes the counting benchmark and
+      reviewed promotion tooling; the packaged catalog ships empty in this release."
+    status: accepted
+    source_refs:
+      - git:8c87254fec22b4d4f312038a16f9a238bc9fbca8
+    paths:
+      - supertonicsynth/voice_level.py
+      - supertonicsynth/audio.py
+      - supertonicsynth/data/voice_level_calibration.json
+      - supertonicsynth/runtime.py
+      - supertonicsynth/types.py
+      - supertonicsynth/__main__.py
+      - benchmarks/voice_level_benchmark.py
+      - benchmarks/promote_voice_calibration.py
+    sources:
+      - git:8c87254fec22b4d4f312038a16f9a238bc9fbca8
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: fixed
+    summary: Fixed the voices example to use the semantic voice ref and declared huggingface_hub in the install extras
+    status: accepted
+    source_refs:
+      - git:35a3bcce3c65d4eb824a213b8e9ef9cf039b9153
+    paths:
+      - examples/voices.py
+      - pyproject.toml
+    sources:
+      - git:35a3bcce3c65d4eb824a213b8e9ef9cf039b9153
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: fixed
+    summary: Fixed missing numeralform and spokenform development dependencies required by the calibration benchmarks
+    status: accepted
+    source_refs:
+      - git:a5f8e982e079dbb3df25a7f6884febc8f3287a29
+    paths:
+      - pyproject.toml
+    sources:
+      - git:a5f8e982e079dbb3df25a7f6884febc8f3287a29
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: internal
+    summary: Improved the release workflow with a pinned PyPI publish action and token based publishing
+    status: accepted
+    internal: true
+    source_refs:
+      - git:923c0a635a19bafe89172be84cbc85e8323ae10d
+    paths:
+      - .github/workflows/python-publish.yml
+    sources:
+      - git:923c0a635a19bafe89172be84cbc85e8323ae10d
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"

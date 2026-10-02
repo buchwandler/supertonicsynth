@@ -1,0 +1,16 @@
+ pyproject.toml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/pyproject.toml b/pyproject.toml
+index 6fdca6e..94b081c 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -47,6 +47,8 @@ dev = [
+   "ruff>=0.16,<0.17",
+   "mypy>=1.11",
+   "build>=1",
++  "numeralform>=0.1.9,<0.2",
++  "spokenform>=0.4.5,<0.5",
+ ]
+
+ [project.scripts]
