@@ -26,7 +26,7 @@ The processing order is peak normalization, one static calibration gain on the c
 
 ## Incomplete language benchmark
 
-The calibration benchmark prepares numbers 1 through 10 with `numeralform`, then runs the language-specific text through `spokenform`. In the current sibling checkouts, Croatian (`hr`) is missing from both locale registries. Its stimulus preparation fails explicitly, so the full voice/language matrix is incomplete and the packaged catalog remains empty. Do not map `hr` to another language or promote a partial report as full coverage. `na` is separately excluded as the unknown-language sentinel.
+The calibration benchmark prepares numbers 1 through 10 with `numeralform`, then runs the language-specific text through `spokenform`. The packaged catalog contains 252 reviewed, statistically eligible identities. Coverage remains partial, not the full 310-key matrix: 48 completed but high-variability identities and all 10 incomplete Croatian (`hr`) identities are absent. Croatian stimulus preparation failed because the locale was unavailable in the local sibling checkouts. Missing entries remain unchanged at runtime (0 dB). Do not map `hr` to another language. Reviewed eligible entries for other identities may be deliberately packaged as partial coverage with `--allow-partial`; missing identities continue to resolve to no calibration. `na` is excluded as the unknown-language sentinel.
 
 ## OnnxVoice dependency version
 

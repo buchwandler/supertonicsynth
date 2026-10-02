@@ -239,5 +239,34 @@ def test_default_catalog_loads_from_packaged_resources():
 
     assert catalog.schema == 1
     assert catalog.method == "bs1770"
-    assert catalog.voices == {}
+    assert catalog.corpus == "supertonicsynth-counting-1-to-10-v1"
+    assert catalog.reference_lufs == -24.0
+    assert len(catalog.voices) == 252
     assert catalog.revision is not None and len(catalog.revision) == 64
+
+    de_key = VoiceCalibrationKey("supertonic:supertonic-3/F1", "de")
+    de = catalog.voices[de_key]
+    assert de.gain_db == pytest.approx(-7.350321819495406)
+    assert de.measured_lufs == pytest.approx(-16.649678180504594)
+    assert de.mad_lu == pytest.approx(0.1121306640854769)
+    assert de.samples == 3
+    assert de.method == "bs1770"
+    assert de.corpus_version == "supertonicsynth-counting-1-to-10-v1"
+
+    assert VoiceCalibrationKey("supertonic:supertonic-3/F1", "cs") not in catalog.voices
+    for voice in ("F1", "F2", "F3", "F4", "F5", "M1", "M2", "M3", "M4", "M5"):
+        assert VoiceCalibrationKey(f"supertonic:supertonic-3/{voice}", "hr") not in catalog.voices
+
+
+def test_packaged_calibration_records_match_benchmark_policy():
+    catalog = default_voice_calibration()
+
+    for key, record in catalog.voices.items():
+        assert key.language not in {"hr", "na"}
+        assert record.samples == 3
+        assert record.method == "bs1770"
+        assert record.reference_lufs == -24.0
+        assert record.corpus_version == catalog.corpus
+        assert record.mad_lu is not None and record.mad_lu <= 0.75
+        assert record.measured_lufs is not None
+        assert record.gain_db == pytest.approx(-24.0 - record.measured_lufs)

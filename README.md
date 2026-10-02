@@ -68,7 +68,7 @@ Calibration is an offline, reviewed static correction. The benchmark measures pr
 
 `VoiceLevelConfig(mode="off")` is the default. `mode="calibrated"` opts into the packaged catalog. `normalize_audio` is a separate deterministic peak-normalization control. `output_gain` is a separate linear user-requested gain. Neither feature performs final program mastering, which remains an external responsibility.
 
-The packaged catalog is currently empty. The full measurement matrix is blocked because the local Spokenform and Numeralform checkouts do not support Croatian (`hr`); the benchmark fails for that language instead of borrowing English. See the [benchmark and promotion guide](benchmarks/README.md). The `na` unknown-language sentinel is not a spoken language and is intentionally excluded from calibration coverage.
+The package ships 252 reviewed, statistically eligible voice/language calibrations from the Supertonic-3 counting benchmark. Coverage is partial, not the full 310-key matrix: 48 completed but high-variability identities and all 10 Croatian (`hr`) identities are intentionally absent because a Croatian counting stimulus could not be prepared. Missing entries remain unchanged at runtime (0 dB). The `na` unknown-language sentinel is excluded because it is not a spoken calibration language. See the [benchmark and promotion guide](benchmarks/README.md).
 
 ## Further documentation
 

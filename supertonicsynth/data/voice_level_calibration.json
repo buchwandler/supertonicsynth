@@ -1,8 +1,2283 @@
 {
-  "schema": 1,
+  "corpus": "supertonicsynth-counting-1-to-10-v1",
+  "generated_with": {
+    "audiosig": "0.1.6",
+    "numeralform": "0.1.10.dev1+gcdfe65c58",
+    "onnxvoice": "0.2.0",
+    "spokenform": "0.4.6.dev1+gb85de41a6",
+    "supertonicsynth": "0.1.0"
+  },
   "method": "bs1770",
-  "corpus": "supertonicsynth-prepared-speech-v1",
   "reference_lufs": -24.0,
-  "generated_with": {},
-  "voices": {}
+  "schema": 1,
+  "voices": {
+    "supertonic:supertonic-3/F1@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.772108650244039,
+      "mad_lu": 0.07343708955899331,
+      "measured_lufs": -17.22789134975596,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.980416338085572,
+      "mad_lu": 0.01583551252984705,
+      "measured_lufs": -16.019583661914428,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@da": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.44401252009936,
+      "mad_lu": 0.15729166280718587,
+      "measured_lufs": -15.55598747990064,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.350321819495406,
+      "mad_lu": 0.1121306640854769,
+      "measured_lufs": -16.649678180504594,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.475414321741837,
+      "mad_lu": 0.34838822527411395,
+      "measured_lufs": -16.524585678258163,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@en": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.35934330766209,
+      "mad_lu": 0.24607511000763083,
+      "measured_lufs": -16.64065669233791,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.838232040300699,
+      "mad_lu": 0.6462557899969745,
+      "measured_lufs": -18.1617679596993,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.019437227755734,
+      "mad_lu": 0.4292497842807279,
+      "measured_lufs": -15.980562772244266,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.81978813694916,
+      "mad_lu": 0.19149987207317665,
+      "measured_lufs": -16.18021186305084,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.516286170242079,
+      "mad_lu": 0.5477856300998099,
+      "measured_lufs": -17.48371382975792,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.050042226742805,
+      "mad_lu": 0.21068383087478004,
+      "measured_lufs": -15.949957773257195,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@it": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.0895148170121125,
+      "mad_lu": 0.0916959826795285,
+      "measured_lufs": -16.910485182987887,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@ko": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.747476281004651,
+      "mad_lu": 0.5789395894208784,
+      "measured_lufs": -15.252523718995349,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@lt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.159014616444432,
+      "mad_lu": 0.7385676962083085,
+      "measured_lufs": -14.840985383555568,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.355036520327003,
+      "mad_lu": 0.05632646787904605,
+      "measured_lufs": -15.644963479672997,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@nl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.037309859913154,
+      "mad_lu": 0.05777591968445783,
+      "measured_lufs": -15.962690140086846,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@pl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.303851506012876,
+      "mad_lu": 0.07468222658729573,
+      "measured_lufs": -17.696148493987124,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@ro": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.702138420886207,
+      "mad_lu": 0.33442084480265777,
+      "measured_lufs": -16.297861579113793,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@sk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -3.813718361341259,
+      "mad_lu": 0.4739062236369733,
+      "measured_lufs": -20.18628163865874,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@sv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.763185233923993,
+      "mad_lu": 0.520106678050297,
+      "measured_lufs": -15.236814766076007,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.7681278112809515,
+      "mad_lu": 0.48867197820630537,
+      "measured_lufs": -17.23187218871905,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F1@uk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.846366869598835,
+      "mad_lu": 0.3279377366419389,
+      "measured_lufs": -17.153633130401165,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.646107240185319,
+      "mad_lu": 0.49058060896954814,
+      "measured_lufs": -18.35389275981468,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.9212730348156555,
+      "mad_lu": 0.4046263687110567,
+      "measured_lufs": -18.078726965184345,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@cs": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.748289740182361,
+      "mad_lu": 0.6975916406701401,
+      "measured_lufs": -18.25171025981764,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.014919035747933,
+      "mad_lu": 0.33609532711912493,
+      "measured_lufs": -16.985080964252067,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.464080270649095,
+      "mad_lu": 0.3747425188586746,
+      "measured_lufs": -16.535919729350905,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@en": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.853832477122555,
+      "mad_lu": 0.47823320445049866,
+      "measured_lufs": -16.146167522877445,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.43354179964879,
+      "mad_lu": 0.057970011209718564,
+      "measured_lufs": -17.56645820035121,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.2059575393893205,
+      "mad_lu": 0.26447426728967827,
+      "measured_lufs": -17.79404246061068,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.724860220242727,
+      "mad_lu": 0.4794481002880584,
+      "measured_lufs": -15.275139779757273,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@fr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.464279960614164,
+      "mad_lu": 0.7052661538952876,
+      "measured_lufs": -17.535720039385836,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.880343319354559,
+      "mad_lu": 0.5354534465091803,
+      "measured_lufs": -17.11965668064544,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@ja": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.068446100129588,
+      "mad_lu": 0.5684430713617701,
+      "measured_lufs": -16.931553899870412,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.114024954213972,
+      "mad_lu": 0.1791558575023089,
+      "measured_lufs": -15.885975045786028,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@pt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.309068944438174,
+      "mad_lu": 0.2915525604262328,
+      "measured_lufs": -16.690931055561826,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@ro": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.2000622637559815,
+      "mad_lu": 0.32464397620720575,
+      "measured_lufs": -16.79993773624402,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@ru": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.428977359499502,
+      "mad_lu": 0.3540208069202855,
+      "measured_lufs": -16.571022640500498,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@sk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.944723486505346,
+      "mad_lu": 0.08091512008857293,
+      "measured_lufs": -17.055276513494654,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@sl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.845722282794473,
+      "mad_lu": 0.13706505107427347,
+      "measured_lufs": -16.154277717205527,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.169213880435503,
+      "mad_lu": 0.6063477048804593,
+      "measured_lufs": -15.830786119564497,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@uk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.320397268965888,
+      "mad_lu": 0.36061299835449745,
+      "measured_lufs": -16.679602731034112,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F2@vi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.461916725373705,
+      "mad_lu": 0.5740911689192405,
+      "measured_lufs": -16.538083274626295,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.49217234181021,
+      "mad_lu": 0.3943387185380267,
+      "measured_lufs": -19.50782765818979,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.255885503497687,
+      "mad_lu": 0.004891975141624982,
+      "measured_lufs": -17.744114496502313,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@cs": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.385010243150756,
+      "mad_lu": 0.1996009323994592,
+      "measured_lufs": -16.614989756849244,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@da": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.429634216877913,
+      "mad_lu": 0.6289635485327576,
+      "measured_lufs": -14.570365783122087,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.936467760604099,
+      "mad_lu": 0.09477028534174181,
+      "measured_lufs": -17.0635322393959,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.384308698524631,
+      "mad_lu": 0.26998356264871504,
+      "measured_lufs": -18.61569130147537,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@en": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.754604321436622,
+      "mad_lu": 0.20971062417900477,
+      "measured_lufs": -14.245395678563378,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.834660991807219,
+      "mad_lu": 0.2014846763441387,
+      "measured_lufs": -15.165339008192781,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.447418462870568,
+      "mad_lu": 0.5712478739329185,
+      "measured_lufs": -14.552581537129432,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.289487081765856,
+      "mad_lu": 0.15210287627990127,
+      "measured_lufs": -16.710512918234144,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@fr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.393566389391905,
+      "mad_lu": 0.2933486575497284,
+      "measured_lufs": -15.606433610608095,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.530708233027269,
+      "mad_lu": 0.6678460461479077,
+      "measured_lufs": -17.46929176697273,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.086071133505873,
+      "mad_lu": 0.13266590024150382,
+      "measured_lufs": -15.913928866494127,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.3631229450205495,
+      "mad_lu": 0.6022741367305819,
+      "measured_lufs": -18.63687705497945,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@it": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.28079954067282,
+      "mad_lu": 0.6661294206489679,
+      "measured_lufs": -16.71920045932718,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@ja": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.641401033404795,
+      "mad_lu": 0.13276317336968724,
+      "measured_lufs": -15.358598966595205,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@ko": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.6360989012363305,
+      "mad_lu": 0.7329611578317632,
+      "measured_lufs": -17.36390109876367,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@lt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.298288942973846,
+      "mad_lu": 0.13062916290076032,
+      "measured_lufs": -15.701711057026154,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.586193030827825,
+      "mad_lu": 0.18113441276979714,
+      "measured_lufs": -16.413806969172175,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@pl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.965276903915619,
+      "mad_lu": 0.6415167974314873,
+      "measured_lufs": -15.034723096084381,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@ro": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.458919763440772,
+      "mad_lu": 0.3553591801973539,
+      "measured_lufs": -16.541080236559228,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@ru": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -10.079176446093358,
+      "mad_lu": 0.6576689024496929,
+      "measured_lufs": -13.920823553906642,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@sk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.27949241559112,
+      "mad_lu": 0.16462199256200982,
+      "measured_lufs": -14.72050758440888,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@sl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.432378611206692,
+      "mad_lu": 0.1181848575929827,
+      "measured_lufs": -15.567621388793308,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@sv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.372700240157409,
+      "mad_lu": 0.42325842687849224,
+      "measured_lufs": -15.627299759842591,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.364475580318853,
+      "mad_lu": 0.6347144302906038,
+      "measured_lufs": -18.635524419681147,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@uk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.10154178516232,
+      "mad_lu": 0.46667536960946165,
+      "measured_lufs": -15.89845821483768,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F3@vi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.282108608406748,
+      "mad_lu": 0.3397580684399166,
+      "measured_lufs": -19.717891391593252,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.50271043708068,
+      "mad_lu": 0.04080110906028622,
+      "measured_lufs": -16.49728956291932,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.194490766059298,
+      "mad_lu": 0.6407806004170027,
+      "measured_lufs": -15.805509233940702,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@cs": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.474015083343046,
+      "mad_lu": 0.4572594855185379,
+      "measured_lufs": -14.525984916656954,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@da": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.565346617881069,
+      "mad_lu": 0.37053754255990157,
+      "measured_lufs": -16.43465338211893,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.1117913935893995,
+      "mad_lu": 0.03389261880565897,
+      "measured_lufs": -16.8882086064106,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.107407056612884,
+      "mad_lu": 0.4916921675080328,
+      "measured_lufs": -14.892592943387116,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@en": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.86507324335059,
+      "mad_lu": 0.21411162750748147,
+      "measured_lufs": -16.13492675664941,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.406026693803287,
+      "mad_lu": 0.45216446164553403,
+      "measured_lufs": -15.593973306196713,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.996673159763562,
+      "mad_lu": 0.37546893877064846,
+      "measured_lufs": -15.003326840236438,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.770414835539437,
+      "mad_lu": 0.7439198961571378,
+      "measured_lufs": -17.229585164460563,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@fr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.566921140211992,
+      "mad_lu": 0.03531114998461149,
+      "measured_lufs": -16.433078859788008,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.18768938404956,
+      "mad_lu": 0.15510947711081968,
+      "measured_lufs": -15.81231061595044,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.017813467073005,
+      "mad_lu": 0.18162657106587865,
+      "measured_lufs": -15.982186532926995,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.55599789991772,
+      "mad_lu": 0.5198148689757645,
+      "measured_lufs": -16.44400210008228,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@it": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.410231524484475,
+      "mad_lu": 0.0374634265541971,
+      "measured_lufs": -15.589768475515525,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@ja": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.41728334704004,
+      "mad_lu": 0.2967736426373513,
+      "measured_lufs": -15.58271665295996,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@ko": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.232184118657301,
+      "mad_lu": 0.1301096624128899,
+      "measured_lufs": -15.767815881342699,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@lt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.968694966486723,
+      "mad_lu": 0.2487362713233061,
+      "measured_lufs": -16.031305033513277,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.259251556216864,
+      "mad_lu": 0.5237075660509216,
+      "measured_lufs": -15.740748443783136,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@nl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.610678936090624,
+      "mad_lu": 0.5512158326649566,
+      "measured_lufs": -15.389321063909376,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@pt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.260202974517453,
+      "mad_lu": 0.050853090204846296,
+      "measured_lufs": -15.739797025482547,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@ro": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.051124681619536,
+      "mad_lu": 0.07253695066951771,
+      "measured_lufs": -15.948875318380464,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@ru": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.836430553590013,
+      "mad_lu": 0.34602595137919856,
+      "measured_lufs": -15.163569446409987,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@sk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.038065639206124,
+      "mad_lu": 0.09233204311284027,
+      "measured_lufs": -17.961934360793876,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@sv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.586099773109954,
+      "mad_lu": 0.21828347441525509,
+      "measured_lufs": -15.413900226890046,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.950034814144935,
+      "mad_lu": 0.17741562458374105,
+      "measured_lufs": -16.049965185855065,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@uk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.907080474987964,
+      "mad_lu": 0.46297223430600454,
+      "measured_lufs": -16.092919525012036,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F4@vi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.2450025062680545,
+      "mad_lu": 0.03393639579912744,
+      "measured_lufs": -17.754997493731945,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.494155404739576,
+      "mad_lu": 0.3687148628688739,
+      "measured_lufs": -16.505844595260424,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.786276167165486,
+      "mad_lu": 0.4370837598785897,
+      "measured_lufs": -16.213723832834514,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@cs": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.228768272134811,
+      "mad_lu": 0.14619454792617503,
+      "measured_lufs": -16.77123172786519,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@da": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.47789552924955,
+      "mad_lu": 0.03853514963838123,
+      "measured_lufs": -15.52210447075045,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.611544216065251,
+      "mad_lu": 0.4087588774964974,
+      "measured_lufs": -15.388455783934749,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.467769784084268,
+      "mad_lu": 0.10864610897634464,
+      "measured_lufs": -16.53223021591573,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.385865283328178,
+      "mad_lu": 0.2750332471610619,
+      "measured_lufs": -15.614134716671822,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -10.464263106829042,
+      "mad_lu": 0.1157030851519174,
+      "measured_lufs": -13.535736893170958,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.848527336649287,
+      "mad_lu": 0.16102701001935849,
+      "measured_lufs": -15.151472663350713,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@fr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.804225382564471,
+      "mad_lu": 0.696733021915481,
+      "measured_lufs": -16.19577461743553,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -10.257608668312399,
+      "mad_lu": 0.001832567535206664,
+      "measured_lufs": -13.742391331687601,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.231942171224885,
+      "mad_lu": 0.587487059498903,
+      "measured_lufs": -14.768057828775115,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.227657528717689,
+      "mad_lu": 0.08572117432603221,
+      "measured_lufs": -14.772342471282311,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@it": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.177783366676739,
+      "mad_lu": 0.06963187576791086,
+      "measured_lufs": -14.822216633323261,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@ja": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -10.052298521531668,
+      "mad_lu": 0.06687745892683772,
+      "measured_lufs": -13.947701478468332,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@lt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.761392524786027,
+      "mad_lu": 0.292393308915603,
+      "measured_lufs": -14.238607475213973,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.264295089995327,
+      "mad_lu": 0.004669460622555022,
+      "measured_lufs": -14.735704910004673,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@nl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.795024275451766,
+      "mad_lu": 0.5993267562435527,
+      "measured_lufs": -14.204975724548234,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@pl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.092464814128844,
+      "mad_lu": 0.3001746735932329,
+      "measured_lufs": -14.907535185871156,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@pt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.899308884226548,
+      "mad_lu": 0.27214203816344096,
+      "measured_lufs": -15.100691115773452,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@ro": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.239160128626276,
+      "mad_lu": 0.2742571686005242,
+      "measured_lufs": -14.760839871373724,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@ru": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.104024323844223,
+      "mad_lu": 0.12096654593417178,
+      "measured_lufs": -15.895975676155777,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@sk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -10.137926272892917,
+      "mad_lu": 0.09184236950536295,
+      "measured_lufs": -13.862073727107083,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@sl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.788277093780778,
+      "mad_lu": 0.7349607600963992,
+      "measured_lufs": -15.211722906219222,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@sv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.878361644936506,
+      "mad_lu": 0.30484901473614556,
+      "measured_lufs": -15.121638355063494,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.775855615336363,
+      "mad_lu": 0.24723670759199123,
+      "measured_lufs": -14.224144384663637,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/F5@vi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.488251236104684,
+      "mad_lu": 0.32072707345846396,
+      "measured_lufs": -17.511748763895316,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -2.085488847937942,
+      "mad_lu": 0.46251957549227996,
+      "measured_lufs": -21.914511152062058,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -2.2870779326709574,
+      "mad_lu": 0.24344341737364772,
+      "measured_lufs": -21.712922067329043,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@cs": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.687910841558612,
+      "mad_lu": 0.1053658248271141,
+      "measured_lufs": -19.31208915844139,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@da": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.340937592886998,
+      "mad_lu": 0.08958962763934863,
+      "measured_lufs": -17.659062407113,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.835977277560051,
+      "mad_lu": 0.04553641169801992,
+      "measured_lufs": -18.16402272243995,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.965829741362533,
+      "mad_lu": 0.22238972025781933,
+      "measured_lufs": -19.034170258637467,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@en": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.839453090630837,
+      "mad_lu": 0.07367595045651854,
+      "measured_lufs": -18.160546909369163,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.89966931043476,
+      "mad_lu": 0.49238556664398914,
+      "measured_lufs": -19.10033068956524,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.63772308164339,
+      "mad_lu": 0.3681165931353476,
+      "measured_lufs": -19.36227691835661,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.257237204277946,
+      "mad_lu": 0.4335873023561625,
+      "measured_lufs": -18.742762795722054,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.336439639991273,
+      "mad_lu": 0.32446913009538747,
+      "measured_lufs": -19.663560360008727,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.749116587381966,
+      "mad_lu": 0.1626359545093976,
+      "measured_lufs": -19.250883412618034,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.377334568467113,
+      "mad_lu": 0.4494885262808488,
+      "measured_lufs": -19.622665431532887,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@it": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.827813855422619,
+      "mad_lu": 0.4905531850156599,
+      "measured_lufs": -19.17218614457738,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@ja": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -3.3362076123201945,
+      "mad_lu": 0.1507473948515532,
+      "measured_lufs": -20.663792387679806,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@ko": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.525329187987133,
+      "mad_lu": 0.5969111853288709,
+      "measured_lufs": -18.474670812012867,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@lt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.085459103101158,
+      "mad_lu": 0.5095270808164436,
+      "measured_lufs": -18.914540896898842,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.0160892238612895,
+      "mad_lu": 0.33654449308120604,
+      "measured_lufs": -17.98391077613871,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@nl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.779596313116706,
+      "mad_lu": 0.37413356234397455,
+      "measured_lufs": -17.220403686883294,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@pl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -3.649762735738623,
+      "mad_lu": 0.5705540906724949,
+      "measured_lufs": -20.350237264261377,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@pt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.4962649176966,
+      "mad_lu": 0.35123079913671873,
+      "measured_lufs": -17.5037350823034,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@ru": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.857732305807637,
+      "mad_lu": 0.02979139908118711,
+      "measured_lufs": -18.142267694192363,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@sl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.10775966405026,
+      "mad_lu": 0.2631889131754832,
+      "measured_lufs": -18.89224033594974,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.038778718135298,
+      "mad_lu": 0.5584032530522904,
+      "measured_lufs": -17.961221281864702,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@uk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.603274714404886,
+      "mad_lu": 0.050136519376234645,
+      "measured_lufs": -17.396725285595114,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M1@vi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.295584941304426,
+      "mad_lu": 0.22909073865767837,
+      "measured_lufs": -19.704415058695574,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -3.8693865409920036,
+      "mad_lu": 0.5336206046657672,
+      "measured_lufs": -20.130613459007996,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.449864207570123,
+      "mad_lu": 0.3001888977734417,
+      "measured_lufs": -19.550135792429877,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@cs": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.174133051450969,
+      "mad_lu": 0.30188209130666976,
+      "measured_lufs": -18.82586694854903,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.9280061883864015,
+      "mad_lu": 0.3576760847352922,
+      "measured_lufs": -19.0719938116136,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.899363780819069,
+      "mad_lu": 0.3416992444794822,
+      "measured_lufs": -19.10063621918093,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.773217844141172,
+      "mad_lu": 0.46874121940100366,
+      "measured_lufs": -18.226782155858828,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.752710972460893,
+      "mad_lu": 0.4018571330147864,
+      "measured_lufs": -18.247289027539107,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@fr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.704981580997089,
+      "mad_lu": 0.02996151696652305,
+      "measured_lufs": -19.29501841900291,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.038655042448944,
+      "mad_lu": 0.0822019583420115,
+      "measured_lufs": -17.961344957551056,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -3.5669201613128685,
+      "mad_lu": 0.1584807865450415,
+      "measured_lufs": -20.43307983868713,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.318778756745562,
+      "mad_lu": 0.19034861021708593,
+      "measured_lufs": -19.681221243254438,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@it": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.462649815841463,
+      "mad_lu": 0.5561294575926858,
+      "measured_lufs": -18.537350184158537,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@ja": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -2.1569998881925976,
+      "mad_lu": 0.12443540275106457,
+      "measured_lufs": -21.843000111807402,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.047428718257063,
+      "mad_lu": 0.24648607636116537,
+      "measured_lufs": -17.952571281742937,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@nl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.539667432882368,
+      "mad_lu": 0.6073257612881946,
+      "measured_lufs": -17.460332567117632,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@pl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -3.5966231907170148,
+      "mad_lu": 0.08787288469288512,
+      "measured_lufs": -20.403376809282985,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@pt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.863079644826268,
+      "mad_lu": 0.2244303494155595,
+      "measured_lufs": -18.136920355173732,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@ro": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.936108890010054,
+      "mad_lu": 0.36251622156506613,
+      "measured_lufs": -19.063891109989946,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@sl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.968615101400275,
+      "mad_lu": 0.04201030436728104,
+      "measured_lufs": -18.031384898599725,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.618396799118216,
+      "mad_lu": 0.08506407600935617,
+      "measured_lufs": -18.381603200881784,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@uk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.199858068925849,
+      "mad_lu": 0.34775471342694075,
+      "measured_lufs": -17.80014193107415,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M2@vi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.343482036012105,
+      "mad_lu": 0.605440235928608,
+      "measured_lufs": -19.656517963987895,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.231600722266666,
+      "mad_lu": 0.27799500465524574,
+      "measured_lufs": -17.768399277733334,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@da": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.42223420533096,
+      "mad_lu": 0.21185119547590503,
+      "measured_lufs": -15.57776579466904,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.637591494062374,
+      "mad_lu": 0.6546894592865158,
+      "measured_lufs": -16.362408505937626,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.849574673712784,
+      "mad_lu": 0.010578931614240616,
+      "measured_lufs": -17.150425326287216,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@en": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.842823451476843,
+      "mad_lu": 0.6215840275885682,
+      "measured_lufs": -17.157176548523157,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.694363635461144,
+      "mad_lu": 0.10213274849290954,
+      "measured_lufs": -17.305636364538856,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.3074934326842715,
+      "mad_lu": 0.6360200715600008,
+      "measured_lufs": -16.69250656731573,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.743352272813532,
+      "mad_lu": 0.4306988346775995,
+      "measured_lufs": -17.25664772718647,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@fr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.388457660579519,
+      "mad_lu": 0.28302333186806905,
+      "measured_lufs": -16.61154233942048,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.571460896250574,
+      "mad_lu": 0.3707897762127601,
+      "measured_lufs": -16.428539103749426,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.21387396817002,
+      "mad_lu": 0.22840581363871237,
+      "measured_lufs": -17.78612603182998,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.2757353396108435,
+      "mad_lu": 0.2666621191391094,
+      "measured_lufs": -16.724264660389156,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@it": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.05508425969694,
+      "mad_lu": 0.1340423669609052,
+      "measured_lufs": -16.94491574030306,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@ko": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.474654672397119,
+      "mad_lu": 0.08709756080261322,
+      "measured_lufs": -15.525345327602881,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@lt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.456530474274164,
+      "mad_lu": 0.2598228394239719,
+      "measured_lufs": -16.543469525725836,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.556245348157514,
+      "mad_lu": 0.18632935112426807,
+      "measured_lufs": -16.443754651842486,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@nl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.507335935199734,
+      "mad_lu": 0.30887472183358256,
+      "measured_lufs": -16.492664064800266,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@pl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.221394535786274,
+      "mad_lu": 0.04608838033493967,
+      "measured_lufs": -16.778605464213726,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@pt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.489325221828697,
+      "mad_lu": 0.02190869882909041,
+      "measured_lufs": -16.510674778171303,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@ro": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.343653745905527,
+      "mad_lu": 0.2979361643065026,
+      "measured_lufs": -16.656346254094473,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@ru": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.918494311378659,
+      "mad_lu": 0.15578438166249775,
+      "measured_lufs": -16.08150568862134,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@sk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.708494434095485,
+      "mad_lu": 0.5467728764721329,
+      "measured_lufs": -16.291505565904515,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@sl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.486331666531012,
+      "mad_lu": 0.2570694225081347,
+      "measured_lufs": -18.51366833346899,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@sv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.299398913097157,
+      "mad_lu": 0.30967547484381086,
+      "measured_lufs": -16.700601086902843,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.031250019325286,
+      "mad_lu": 0.41302641611179247,
+      "measured_lufs": -15.968749980674714,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M3@uk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.657603290864966,
+      "mad_lu": 0.16152458727172814,
+      "measured_lufs": -17.342396709135034,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.674092765167753,
+      "mad_lu": 0.036044151293724624,
+      "measured_lufs": -15.325907234832247,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@cs": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.015896909452088,
+      "mad_lu": 0.35407905520654737,
+      "measured_lufs": -16.98410309054791,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@da": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.275430492863977,
+      "mad_lu": 0.18161380198005794,
+      "measured_lufs": -15.724569507136023,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.504107887968189,
+      "mad_lu": 0.04124952120505654,
+      "measured_lufs": -16.49589211203181,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.084423419090072,
+      "mad_lu": 0.6250106994872944,
+      "measured_lufs": -15.915576580909928,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@en": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.77736496066298,
+      "mad_lu": 0.6042681491419959,
+      "measured_lufs": -14.22263503933702,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.51737971362328,
+      "mad_lu": 0.3972202037874215,
+      "measured_lufs": -15.48262028637672,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.096230406916085,
+      "mad_lu": 0.6543757369233081,
+      "measured_lufs": -15.903769593083915,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@fr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.485795078915505,
+      "mad_lu": 0.037740463808848546,
+      "measured_lufs": -16.514204921084495,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.506445654692882,
+      "mad_lu": 0.08560022022266622,
+      "measured_lufs": -16.493554345307118,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.235803888075861,
+      "mad_lu": 0.07304519600047144,
+      "measured_lufs": -16.76419611192414,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.311716392472897,
+      "mad_lu": 0.39592332902140015,
+      "measured_lufs": -15.688283607527103,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@it": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.621651809918442,
+      "mad_lu": 0.18691794180718624,
+      "measured_lufs": -15.378348190081558,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@ja": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.636943664051245,
+      "mad_lu": 0.5184582878674071,
+      "measured_lufs": -17.363056335948755,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@ko": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.911023861298045,
+      "mad_lu": 0.3054412476836639,
+      "measured_lufs": -16.088976138701955,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@lt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.007712593539214,
+      "mad_lu": 0.5397854723387656,
+      "measured_lufs": -14.992287406460786,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.272103525187296,
+      "mad_lu": 0.16284768807258665,
+      "measured_lufs": -14.727896474812704,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@nl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -9.283652481240932,
+      "mad_lu": 0.4457983293535026,
+      "measured_lufs": -14.716347518759068,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@pl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.018671782255375,
+      "mad_lu": 0.693685252616536,
+      "measured_lufs": -15.981328217744625,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@pt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.829230800815317,
+      "mad_lu": 0.4607615702064507,
+      "measured_lufs": -16.170769199184683,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@ro": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.266105318359983,
+      "mad_lu": 0.032445540636210524,
+      "measured_lufs": -15.733894681640017,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@ru": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.266255028295715,
+      "mad_lu": 0.020198116355752305,
+      "measured_lufs": -15.733744971704285,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@sk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.470844976858144,
+      "mad_lu": 0.3615092682664276,
+      "measured_lufs": -15.529155023141856,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@sl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.773986102623589,
+      "mad_lu": 0.3722964313050632,
+      "measured_lufs": -16.22601389737641,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.205223248689361,
+      "mad_lu": 0.4148931353634069,
+      "measured_lufs": -16.79477675131064,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@uk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.589999003560145,
+      "mad_lu": 0.06533448366637273,
+      "measured_lufs": -15.410000996439855,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M4@vi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.54678550894781,
+      "mad_lu": 0.25834182308479825,
+      "measured_lufs": -18.45321449105219,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@ar": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.335865562860501,
+      "mad_lu": 0.11074709966463203,
+      "measured_lufs": -17.6641344371395,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@bg": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.706131490686694,
+      "mad_lu": 0.2591569299972356,
+      "measured_lufs": -18.293868509313306,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@cs": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.906142275174883,
+      "mad_lu": 0.09393871141104171,
+      "measured_lufs": -17.093857724825117,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@da": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.335822705538718,
+      "mad_lu": 0.6828079311146489,
+      "measured_lufs": -15.664177294461282,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@de": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.658665708871723,
+      "mad_lu": 0.01149482447350536,
+      "measured_lufs": -16.341334291128277,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@el": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.1749061820651185,
+      "mad_lu": 0.17592494584891583,
+      "measured_lufs": -17.82509381793488,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@en": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.22874309203411,
+      "mad_lu": 0.11048417391976173,
+      "measured_lufs": -15.77125690796589,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@es": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.8329203414710165,
+      "mad_lu": 0.08037840558762355,
+      "measured_lufs": -18.167079658528984,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@et": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.8352229925753285,
+      "mad_lu": 0.6535981108439017,
+      "measured_lufs": -19.16477700742467,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@fi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.72082810444185,
+      "mad_lu": 0.7050238834295577,
+      "measured_lufs": -16.27917189555815,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@hi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.469975070145093,
+      "mad_lu": 0.1265808594553981,
+      "measured_lufs": -17.530024929854907,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@hu": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.759742190300852,
+      "mad_lu": 0.6218712793480989,
+      "measured_lufs": -18.24025780969915,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@id": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.688345710719062,
+      "mad_lu": 0.7385140252756841,
+      "measured_lufs": -17.311654289280938,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@ja": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.559509969960663,
+      "mad_lu": 0.1952092483700305,
+      "measured_lufs": -15.440490030039337,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@ko": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.708255717588392,
+      "mad_lu": 0.34065007833789807,
+      "measured_lufs": -15.291744282411608,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@lt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.080156843031336,
+      "mad_lu": 0.3716442316674211,
+      "measured_lufs": -16.919843156968664,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@lv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.417342587585189,
+      "mad_lu": 0.3846963745061913,
+      "measured_lufs": -16.58265741241481,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@nl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.485467955823037,
+      "mad_lu": 0.09026131776615998,
+      "measured_lufs": -16.514532044176963,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@pl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -5.954385913482376,
+      "mad_lu": 0.43716080050515416,
+      "measured_lufs": -18.045614086517624,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@pt": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -4.979047610832712,
+      "mad_lu": 0.4648898170959477,
+      "measured_lufs": -19.020952389167288,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@sk": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.3968703068149075,
+      "mad_lu": 0.04618925961336373,
+      "measured_lufs": -17.603129693185092,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@sl": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.256876131754826,
+      "mad_lu": 0.11996455414610097,
+      "measured_lufs": -17.743123868245174,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@sv": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -8.458958102898132,
+      "mad_lu": 0.35364170905213044,
+      "measured_lufs": -15.541041897101868,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@tr": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -7.5765467443751575,
+      "mad_lu": 0.25327010827346186,
+      "measured_lufs": -16.423453255624842,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    },
+    "supertonic:supertonic-3/M5@vi": {
+      "corpus_version": "supertonicsynth-counting-1-to-10-v1",
+      "gain_db": -6.256954388676526,
+      "mad_lu": 0.04722135408987427,
+      "measured_lufs": -17.743045611323474,
+      "method": "bs1770",
+      "reference_lufs": -24.0,
+      "samples": 3
+    }
+  }
 }
