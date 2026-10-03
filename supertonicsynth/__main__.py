@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from .discovery import discover_models
+from .errors import BundleNotFoundError
 from .runtime import SupertonicRuntime
 from .types import SynthesisConfig
 from .voice_level import VoiceLevelConfig
@@ -26,20 +28,38 @@ def build_parser() -> argparse.ArgumentParser:
     synth.add_argument("--normalize-audio", action=argparse.BooleanOptionalAction, default=None)
     voices = sub.add_parser(
         "voices",
-        help="install/open a model bundle and list its voices",
-        description="Installs and downloads the selected bundle if needed, then lists its voices.",
+        help="list catalog voices without installing model assets",
+        description="List catalog voices without installing model assets. Catalog metadata may be refreshed or read offline.",
     )
     voices.add_argument("--model", default="supertonic-3")
+    voices.add_argument("--offline", action="store_true", help="use cached catalog metadata only")
+    voices.add_argument("--refresh-catalog", action="store_true", help="refresh catalog metadata")
+    voices.add_argument("--cache-dir", type=Path)
+    voices.add_argument("--catalog-path", type=Path)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "voices":
+        models = discover_models(
+            offline=args.offline,
+            refresh=args.refresh_catalog,
+            cache_dir=args.cache_dir,
+            catalog_path=args.catalog_path,
+        )
+        requested = args.model.removeprefix("supertonic:")
+        model = next(
+            (item for item in models if requested in (item.id, item.ref, *item.aliases)),
+            None,
+        )
+        if model is None:
+            raise BundleNotFoundError(f"Unknown Supertonic model {args.model!r}")
+        for voice_id in model.voice_ids:
+            print(voice_id)
+        return 0
+
     with SupertonicRuntime.from_pretrained(args.model) as runtime:
-        if args.command == "voices":
-            for name in runtime.voice_names:
-                print(name)
-            return 0
         config = SynthesisConfig(
             steps=args.steps,
             speed=args.speed,

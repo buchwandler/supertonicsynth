@@ -28,15 +28,26 @@ from .config import (
 )
 from .errors import (
     ClosedRuntimeError,
+    InvalidGenerationConfigError,
     InvalidLanguageError,
     InvalidRequestError,
     InvalidVoiceStyleError,
     ModelInferenceError,
+    RuntimeCapabilityError,
+    SynthesisInputTooLongError,
 )
-from .frontend import SupertonicFrontend
+from .frontend import FrontendBatch, SupertonicFrontend
 from .style import VoiceStyle, load_voice_style
 from .text_split import chunk_text
-from .types import RuntimeDiagnostics, SynthesisConfig, SynthesisResult
+from .types import (
+    AtomicSynthesisResult,
+    GenerationConfig,
+    RequestMeasure,
+    RuntimeDiagnostics,
+    SynthesisConfig,
+    SynthesisRequest,
+    SynthesisResult,
+)
 from .voice_level import (
     VoiceCalibrationKey,
     VoiceLevelApplication,
@@ -147,6 +158,37 @@ class SupertonicRuntime:
         return tuple(sorted(self.bundle.style_paths))
 
     @property
+    def max_input_tokens(self) -> int | None:
+        value = self.bundle.metadata.get("max_input_tokens")
+        runtime_metadata = self.bundle.metadata.get("runtime")
+        if value is None and isinstance(runtime_metadata, Mapping):
+            value = runtime_metadata.get("max_input_tokens")
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise RuntimeCapabilityError(
+                "model max_input_tokens metadata must be a positive integer"
+            )
+        return value
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise ClosedRuntimeError("runtime is closed")
+
+    def _measure_batch(self, batch: FrontendBatch) -> RequestMeasure:
+        return RequestMeasure(
+            amount=int(batch.text_ids.size),
+            maximum=self.max_input_tokens,
+        )
+
+    def measure_request(self, request: SynthesisRequest) -> RequestMeasure:
+        self._ensure_open()
+        if not isinstance(request, SynthesisRequest):
+            raise InvalidRequestError("request must be a SynthesisRequest")
+        batch = self.frontend.encode(request.text, request.language)
+        return self._measure_batch(batch)
+
+    @property
     def last_voice_level_application(self) -> VoiceLevelApplication | None:
         return self._last_voice_level_application
 
@@ -159,6 +201,132 @@ class SupertonicRuntime:
                 f"Unknown voice style {voice!r}; available: {available}"
             ) from exc
         return load_voice_style(path, name=voice)
+
+    def _infer_batch(
+        self,
+        batch: FrontendBatch,
+        *,
+        style: VoiceStyle,
+        config: GenerationConfig,
+    ) -> np.ndarray:
+        try:
+            result = self._runtime.infer(
+                batch.text_ids.tolist(),
+                text_mask=batch.text_mask,
+                style_ttl=style.ttl,
+                style_dp=style.dp,
+                steps=config.steps,
+                speed=config.speed,
+                seed=config.seed,
+            )
+        except Exception as exc:
+            if isinstance(exc, (ValueError, TypeError)):
+                raise
+            raise ModelInferenceError(str(exc)) from exc
+        audio = np.asarray(result.audio, dtype=np.float32).squeeze()
+        if audio.ndim != 1 or audio.size == 0 or not np.all(np.isfinite(audio)):
+            raise ModelInferenceError("runtime returned invalid audio")
+        result_rate = int(getattr(result, "sample_rate", self.sample_rate))
+        if result_rate != self.sample_rate:
+            raise ModelInferenceError(
+                f"runtime sample rate changed from {self.sample_rate} to {result_rate}"
+            )
+        return audio
+
+    def synthesize(
+        self,
+        request: SynthesisRequest,
+        *,
+        voice: str | VoiceStyle = DEFAULT_VOICE,
+        config: GenerationConfig | None = None,
+        voice_level: VoiceLevelConfig | None = None,
+    ) -> AtomicSynthesisResult:
+        self._ensure_open()
+        if not isinstance(request, SynthesisRequest):
+            raise InvalidRequestError("request must be a SynthesisRequest")
+        generation = GenerationConfig() if config is None else config
+        if not isinstance(generation, GenerationConfig):
+            raise InvalidGenerationConfigError("config must be a GenerationConfig")
+        level = VoiceLevelConfig() if voice_level is None else voice_level
+        if not isinstance(level, VoiceLevelConfig):
+            raise InvalidGenerationConfigError("voice_level must be a VoiceLevelConfig")
+        if isinstance(voice, str):
+            style = self.get_voice_style(voice)
+        elif isinstance(voice, VoiceStyle):
+            style = voice
+        else:
+            raise InvalidVoiceStyleError("voice must be a managed voice name or VoiceStyle")
+
+        batch = self.frontend.encode(request.text, request.language)
+        measure = self._measure_batch(batch)
+        if measure.fits is False:
+            raise SynthesisInputTooLongError(
+                text_length=len(request.text),
+                token_count=measure.amount,
+                max_tokens=measure.maximum,
+                model_id=self.bundle.bundle_id or self.bundle.ref,
+            )
+
+        audio = self._infer_batch(batch, style=style, config=generation)
+        backing_ref = canonical_backing_ref(self.bundle)
+        voice_ref = canonical_voice_ref(self.bundle, voice)
+        calibration_key = (
+            VoiceCalibrationKey(voice_ref, request.language) if voice_ref is not None else None
+        )
+        audio, application = apply_voice_level_calibration(audio, level, calibration_key)
+        self._last_voice_level_application = application
+        application_key = application.calibration_key
+        voice_level_metadata = {
+            "mode": application.mode,
+            "applied": application.applied,
+            "gain_db": application.gain_db,
+            "source": application.source,
+            "calibration_key": str(application_key) if application_key else None,
+            "catalog_revision": application.catalog_revision,
+            "reason": application.reason,
+        }
+        voice_name = style.name if isinstance(voice, VoiceStyle) else voice
+        synthesis_identity = {
+            "supertonicsynth_version": __version__,
+            "voice_ref": voice_ref,
+            "backing_ref": backing_ref,
+            "source_revision": self.bundle.source_revision,
+            "language": request.language,
+            "steps": generation.steps,
+            "speed": generation.speed,
+            "seed": generation.seed,
+            "voice_level": {
+                "mode": application.mode,
+                "source": application.source,
+                "gain_db": application.gain_db,
+                "calibration_key": str(application_key) if application_key else None,
+                "catalog_revision": application.catalog_revision,
+            },
+        }
+        return AtomicSynthesisResult(
+            id=request.id,
+            audio=audio,
+            sample_rate=self.sample_rate,
+            text=request.text,
+            language=request.language,
+            metadata={
+                "bundle_id": self.bundle.bundle_id,
+                "backing_ref": backing_ref,
+                "source_revision": self.bundle.source_revision,
+                "voice": voice_name,
+                "voice_ref": voice_ref,
+                "language": request.language,
+                "token_count": measure.amount,
+                "generation_config": {
+                    "steps": generation.steps,
+                    "speed": generation.speed,
+                    "seed": generation.seed,
+                },
+                "voice_level": voice_level_metadata,
+                "synthesis_identity": synthesis_identity,
+                "synthesis_hash": _synthesis_hash(synthesis_identity, request.text),
+            },
+        )
 
     def synthesize_text(
         self,
@@ -176,8 +344,7 @@ class SupertonicRuntime:
         output_gain: float | None = None,
         voice_level: VoiceLevelConfig | None = None,
     ) -> SynthesisResult:
-        if self._closed:
-            raise ClosedRuntimeError("runtime is closed")
+        self._ensure_open()
         if not isinstance(text, str) or not text.strip():
             raise InvalidRequestError("text cannot be empty")
         if len(text) > MAX_TEXT_LENGTH:
@@ -214,29 +381,17 @@ class SupertonicRuntime:
         for index, chunk in enumerate(chunks):
             batch = self.frontend.encode(chunk, language)
             call_seed = None if effective.seed is None else effective.seed + index
-            try:
-                result = self._runtime.infer(
-                    batch.text_ids.tolist(),
-                    text_mask=batch.text_mask,
-                    style_ttl=style.ttl,
-                    style_dp=style.dp,
-                    steps=effective.steps,
-                    speed=effective.speed,
-                    seed=call_seed,
+            audio_parts.append(
+                self._infer_batch(
+                    batch,
+                    style=style,
+                    config=GenerationConfig(
+                        steps=effective.steps,
+                        speed=effective.speed,
+                        seed=call_seed,
+                    ),
                 )
-            except Exception as exc:
-                if isinstance(exc, (ValueError, TypeError)):
-                    raise
-                raise ModelInferenceError(str(exc)) from exc
-            audio = np.asarray(result.audio, dtype=np.float32).squeeze()
-            if audio.ndim != 1 or audio.size == 0 or not np.all(np.isfinite(audio)):
-                raise ModelInferenceError("runtime returned invalid audio")
-            result_rate = int(getattr(result, "sample_rate", self.sample_rate))
-            if result_rate != self.sample_rate:
-                raise ModelInferenceError(
-                    f"runtime sample rate changed from {self.sample_rate} to {result_rate}"
-                )
-            audio_parts.append(audio)
+            )
         if effective.silence_duration > 0 and len(audio_parts) > 1:
             silence = np.zeros(
                 int(round(effective.silence_duration * self.sample_rate)), dtype=np.float32

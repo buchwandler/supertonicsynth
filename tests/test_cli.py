@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 import supertonicsynth
 import supertonicsynth.__main__ as cli
 from supertonicsynth.voice_level import VoiceLevelConfig
@@ -94,3 +96,60 @@ def test_cli_passes_postprocessing_controls_to_synthesis(monkeypatch, tmp_path):
     assert config.normalize_audio is False
     assert config.output_gain == 0.75
     assert config.voice_level == VoiceLevelConfig(mode="calibrated", gain_db=-2.5)
+
+
+def test_voices_cli_uses_metadata_only_discovery(monkeypatch, tmp_path, capsys):
+    model = SimpleNamespace(
+        id="supertonic-3",
+        ref="supertonic:supertonic-3",
+        aliases=("st3",),
+        voice_ids=("F1", "M1"),
+    )
+    discovery_calls = []
+
+    def discover(**kwargs):
+        discovery_calls.append(kwargs)
+        return (model,)
+
+    def fail_runtime(*_args, **_kwargs):
+        raise AssertionError("voices must not open a runtime")
+
+    monkeypatch.setattr(cli, "discover_models", discover)
+    monkeypatch.setattr(cli.SupertonicRuntime, "from_pretrained", fail_runtime)
+    cache_dir = tmp_path / "cache"
+    catalog_path = tmp_path / "catalog.json"
+
+    assert (
+        cli.main(
+            [
+                "voices",
+                "--model",
+                "supertonic:st3",
+                "--offline",
+                "--refresh-catalog",
+                "--cache-dir",
+                str(cache_dir),
+                "--catalog-path",
+                str(catalog_path),
+            ]
+        )
+        == 0
+    )
+
+    assert capsys.readouterr().out == "F1\nM1\n"
+    assert discovery_calls == [
+        {
+            "offline": True,
+            "refresh": True,
+            "cache_dir": cache_dir,
+            "catalog_path": catalog_path,
+        }
+    ]
+
+
+def test_voices_cli_help_describes_metadata_only_behavior(capsys):
+
+    with pytest.raises(SystemExit):
+        cli.main(["voices", "--help"])
+
+    assert "without installing model assets" in capsys.readouterr().out

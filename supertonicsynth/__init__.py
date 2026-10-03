@@ -16,6 +16,7 @@ from .config import (
     UNKNOWN_LANGUAGE,
 )
 from .convenience import synthesize
+from .discovery import DescribedVoice, DiscoveredModel, discover_models, runtime_identity
 from .errors import (
     AssetCacheError,
     AssetDownloadError,
@@ -23,6 +24,8 @@ from .errors import (
     BundleNotFoundError,
     CatalogUnavailableError,
     ClosedRuntimeError,
+    EmptyTextError,
+    InvalidGenerationConfigError,
     InvalidLanguageError,
     InvalidRequestError,
     InvalidVoiceStyleError,
@@ -32,10 +35,19 @@ from .errors import (
     RuntimeCapabilityError,
     SessionCreationError,
     SupertonicSynthError,
+    SynthesisInputTooLongError,
 )
 from .runtime import SupertonicRuntime
 from .style import VoiceStyle, load_voice_style
-from .types import RuntimeDiagnostics, SynthesisConfig, SynthesisResult
+from .types import (
+    AtomicSynthesisResult,
+    GenerationConfig,
+    RequestMeasure,
+    RuntimeDiagnostics,
+    SynthesisConfig,
+    SynthesisRequest,
+    SynthesisResult,
+)
 from .voice_level import (
     CalibrationDataError,
     VoiceCalibrationCatalog,
@@ -50,6 +62,17 @@ from .voice_level import (
 )
 
 __all__ = [
+    "AtomicSynthesisResult",
+    "DescribedVoice",
+    "DiscoveredModel",
+    "EmptyTextError",
+    "GenerationConfig",
+    "InvalidGenerationConfigError",
+    "RequestMeasure",
+    "SynthesisInputTooLongError",
+    "SynthesisRequest",
+    "discover_models",
+    "runtime_identity",
     "AVAILABLE_LANGUAGES",
     "BundleAssetManager",
     "DEFAULT_LANGUAGE",

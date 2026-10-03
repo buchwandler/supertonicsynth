@@ -6,15 +6,27 @@ SupertonicSynth owns text validation and normalization, language selection, voic
 
 OnnxVoice owns catalog retrieval, canonical bundle and semantic voice identity, managed installation, checksums and storage, ONNX Runtime sessions, providers, inference execution, and runtime diagnostics. Calibration remains engine-local.
 
+## Public synthesis boundaries
+
+`SupertonicRuntime.synthesize(request, ...)` accepts one `SynthesisRequest`. Each call performs one frontend encoding and at most one inference, passes the configured seed unchanged, and does not split text, join chunk audio, insert silence, peak-normalize, or apply output gain. `GenerationConfig` contains only generation controls; optional voice-level calibration remains a separate argument. `measure_request` reports the encoded token count and compares it only with a model-declared `max_input_tokens`. When capacity metadata is absent, `maximum` and `fits` remain `None`, and synthesis does not reject input based on an invented limit. `SynthesisInputTooLongError` is raised only when a declared maximum is exceeded.
+
+`SupertonicRuntime.synthesize_text` and package-level `synthesize` remain convenience composition APIs. They retain existing chunking, per-chunk seed progression, inter-chunk silence, normalization, output gain, and complete-utterance audio processing.
+
+## Metadata-only discovery
+
+`discover_models` maps the OnnxVoice catalog to typed model and voice records. It reads catalog metadata only; it does not install assets or create inference sessions. Catalog lookup may retrieve metadata unless `offline=True` is selected. Optional catalog values remain absent or unknown when not declared. The inspected Supertonic catalog declares no maximum input-token count, so `max_input_tokens` and request fit remain unknown.
+
+`runtime_identity(model)` reports the installed engine and runtime versions and the available catalog/model revisions. Missing revision metadata remains `None`; it is not synthesized from aliases or local paths.
+
 ## Identity model
 
 A voice has one canonical OnnxVoice semantic ref, for example `supertonic:supertonic-3/F1`. Its backing asset ref is `supertonic:supertonic-3`. Synthesis language is an independent dimension, so calibration keys pair `(voice_ref, language)` and serialize as `supertonic:supertonic-3/F1@de`. The language suffix is not part of the voice ref.
 
 Managed installation identity comes from the canonical installed bundle ID, never from the caller's alias. A style string is eligible only when it names a style in the managed bundle. A local bundle or a caller-created `VoiceStyle` has no automatic calibration identity, even if its path or label resembles a packaged style.
 
-## Audio pipeline
+## Convenience audio pipeline
 
-For each request, the runtime:
+For a `synthesize_text` request, the runtime:
 
 1. runs model inference for each text chunk and validates each returned mono finite waveform;
 2. concatenates speech and requested inter-chunk silence;

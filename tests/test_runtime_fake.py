@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+import supertonicsynth.runtime as runtime_module
 import supertonicsynth.voice_level as voice_level_module
 from supertonicsynth._onnxvoice import (
     ResolvedSupertonicBundle,
@@ -313,3 +314,62 @@ def test_runtime_does_not_measure_loudness(tmp_path, monkeypatch):
     result = runtime.synthesize_text("count to one", voice="M1", language="en")
 
     assert result.audio.size == 100
+
+
+def test_legacy_multichunk_postprocessing_and_seed_behavior_is_preserved(tmp_path, monkeypatch):
+    raw_audio = np.array([0.25, -0.25], dtype=np.float32)
+    runtime, fake, _ = make_runtime(
+        tmp_path,
+        audio=raw_audio,
+        style_names=("F1",),
+        managed=True,
+    )
+    calibration_inputs = []
+    apply_calibration = runtime_module.apply_voice_level_calibration
+
+    def record_calibration(audio, config, key, **kwargs):
+        calibration_inputs.append(np.asarray(audio).copy())
+        return apply_calibration(audio, config, key, **kwargs)
+
+    monkeypatch.setattr(runtime_module, "apply_voice_level_calibration", record_calibration)
+    result = runtime.synthesize_text(
+        "First sentence. Second sentence.",
+        voice="F1",
+        language="en",
+        config=SynthesisConfig(
+            max_chunk_length=15,
+            silence_duration=0.2,
+            seed=10,
+            normalize_audio=True,
+            output_gain=0.5,
+            voice_level=VoiceLevelConfig(gain_db=6.0),
+        ),
+    )
+
+    assert len(fake.calls) == 2
+    assert [call[1]["seed"] for call in fake.calls] == [10, 11]
+    assert result.chunks == 2
+    assert len(calibration_inputs) == 1
+    assert calibration_inputs[0].size == 204
+    gain = 10 ** (6.0 / 20) * 0.5
+    speech = np.array([1.0, -1.0], dtype=np.float32) * gain
+    expected = np.concatenate((speech, np.zeros(200, dtype=np.float32), speech))
+    np.testing.assert_allclose(result.audio, expected, rtol=1e-6)
+    assert result.metadata["normalize_audio"] is True
+    assert result.metadata["output_gain"] == 0.5
+    assert result.metadata["voice_level"]["source"] == "override"
+
+
+def test_legacy_default_chunk_lengths_remain_language_specific(tmp_path, monkeypatch):
+    runtime, _, _ = make_runtime(tmp_path)
+    limits = []
+
+    def capture_limit(text, max_len):
+        limits.append(max_len)
+        return [text]
+
+    monkeypatch.setattr(runtime_module, "chunk_text", capture_limit)
+    runtime.synthesize_text("Hello.", language="en")
+    runtime.synthesize_text("Hello.", language="ko")
+
+    assert limits == [300, 120]

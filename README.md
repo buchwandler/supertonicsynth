@@ -10,7 +10,7 @@ pip install "supertonicsynth[cpu]"
 
 The project uses dynamic VCS versioning through `setuptools_scm`. Model weights are not included in the wheel.
 
-SupertonicSynth 0.1.1 requires OnnxVoice >=0.2.0,<0.3. The 0.2.x line provides the Supertonic catalog, semantic voice refs, managed installation, local-open, and runtime APIs used by this package.
+The package requires OnnxVoice >=0.2.0,<0.3. The 0.2.x line provides the Supertonic catalog, semantic voice refs, managed installation, local-open, and runtime APIs used by this package.
 
 ## Python usage
 
@@ -40,6 +40,40 @@ print(result.metadata["voice_level"]["calibration_key"])
 
 `result.pcm16()` and `result.write_wav(path)` use the same finite-audio validation and clipping policy.
 
+### Atomic synthesis
+
+`SupertonicRuntime.synthesize` is the strict one-request API. It encodes one request and performs at most one inference. It does not split text, join audio chunks, insert inter-chunk silence, peak-normalize, or apply output gain. `synthesize_text` and package-level `synthesize` remain convenience APIs that preserve the existing multi-chunk composition behavior.
+
+```python
+from supertonicsynth import GenerationConfig, SupertonicRuntime, SynthesisRequest
+
+request = SynthesisRequest(id="job-42", text="A prepared German sentence.", language="de")
+with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
+    measurement = tts.measure_request(request)
+    result = tts.synthesize(
+        request,
+        voice="F1",
+        config=GenerationConfig(steps=5, speed=1.05, seed=42),
+    )
+    result.write_wav("atomic.wav")
+
+print(measurement.amount, measurement.maximum, measurement.fits)
+```
+
+`RequestMeasure` reports encoded token count and only reports a maximum when model metadata declares `max_input_tokens`. If no maximum is declared, `maximum` and `fits` are `None`; callers must not infer a capacity limit.
+
+### Metadata-only discovery
+
+```python
+from supertonicsynth import discover_models, runtime_identity
+
+for model in discover_models(language="de"):
+    print(model.id, model.voice_ids, model.max_input_tokens)
+    print(runtime_identity(model))
+```
+
+Discovery reads typed OnnxVoice catalog metadata. It does not install model assets or open runtime sessions. Pass `offline=True` to use cached catalog metadata only. Optional catalog fields, including `max_input_tokens`, remain unknown when the catalog does not declare them.
+
 ## CLI
 
 ```bash
@@ -62,7 +96,7 @@ Use `--voice-gain-db FLOAT` for an explicit static dB override. That override ta
 supertonicsynth voices --model supertonic-3
 ```
 
-This opens the selected bundle and installs/downloads it if it is not available locally. It is not a metadata-only query.
+`voices` lists catalog voice metadata without installing model assets or opening runtime sessions. `--offline` uses cached catalog metadata only; omit it to allow catalog metadata retrieval. Use `--refresh-catalog`, `--cache-dir`, and `--catalog-path` to control catalog lookup.
 
 ## Voice identity and language
 

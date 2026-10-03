@@ -200,6 +200,28 @@ def install_pretrained_bundle(
     return installation_to_bundle_info(installation)
 
 
+def list_pretrained_bundles(
+    *,
+    cache_dir: str | Path | None = None,
+    offline: bool = False,
+    refresh: bool = False,
+    catalog_path: str | Path | None = None,
+    language: str | None = None,
+) -> tuple[Any, ...]:
+    module = _onnxvoice()
+    sources = {"supertonic": str(catalog_path)} if catalog_path is not None else None
+    manager = module.OnnxVoice(
+        cache_dir=cache_dir,
+        catalog_sources=sources,
+        offline=offline,
+    )
+    items = _call(
+        "discover",
+        lambda: manager.list("supertonic", language=language, refresh=refresh),
+    )
+    return tuple(items)
+
+
 def open_installed_bundle(
     resolved: ResolvedSupertonicBundle,
     *,
