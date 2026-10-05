@@ -1,0 +1,523 @@
+ .github/workflows/python-publish.yml |  80 ++++++++++++++++++++++++++
+ .github/workflows/tests.yml          |   9 +++
+ README.md                            |   4 ++
+ docs/architecture.md                 |   4 ++
+ docs/troubleshooting.md              |   6 ++
+ pyproject.toml                       |   1 +
+ supertonicsynth/__init__.py          |   4 ++
+ supertonicsynth/api_contract.py      |  59 ++++++++++++++++++++
+ supertonicsynth/discovery.py         |   2 +
+ tests/test_discovery.py              |   2 +
+ tests/test_public_api.py             |   6 ++
+ tests/test_request_api_contract.py   | 105 +++++++++++++++++++++++++++++++++++
+ tests/test_runtime_atomic.py         |  29 +++++++++-
+ 13 files changed, 309 insertions(+), 2 deletions(-)
+
+diff --git a/.github/workflows/python-publish.yml b/.github/workflows/python-publish.yml
+index 883fd29..49b6856 100644
+--- a/.github/workflows/python-publish.yml
++++ b/.github/workflows/python-publish.yml
+@@ -90,6 +90,86 @@ jobs:
+           EXPECTED_VERSION="${GITHUB_REF_NAME#v}" .release-venv/bin/python -c \
+             'import os, supertonicsynth; assert supertonicsynth.__version__ == os.environ["EXPECTED_VERSION"]'
+           .release-venv/bin/supertonicsynth --help
++          .release-venv/bin/python - <<'PY'
++          import sys
++          import supertonicsynth as api
++          from supertonicsynth import (
++              AtomicSynthesisResult,
++              DescribedVoice,
++              DiscoveredModel,
++              GenerationConfig,
++              RequestApiContract,
++              RequestMeasure,
++              SynthesisInputTooLongError,
++              SynthesisRequest,
++              VoiceLevelConfig,
++              request_api_contract,
++              runtime_identity,
++          )
++
++          required = (
++              "SupertonicRuntime",
++              "SynthesisRequest",
++              "GenerationConfig",
++              "AtomicSynthesisResult",
++              "RequestMeasure",
++              "SynthesisInputTooLongError",
++              "VoiceLevelConfig",
++              "DiscoveredModel",
++              "discover_models",
++              "runtime_identity",
++              "REQUEST_API_VERSION",
++              "RequestApiContract",
++              "request_api_contract",
++          )
++          for name in required:
++              assert getattr(api, name) is not None, name
++
++          assert api.REQUEST_API_VERSION == 1
++          assert callable(api.SupertonicRuntime.from_pretrained)
++          assert callable(api.SupertonicRuntime.measure_request)
++          assert callable(api.SupertonicRuntime.synthesize)
++          assert callable(api.SupertonicRuntime.close)
++          contract = request_api_contract()
++          assert isinstance(contract, RequestApiContract)
++          assert contract.version == 1
++          assert contract.request_type is SynthesisRequest
++          assert contract.result_type is AtomicSynthesisResult
++          assert contract.runtime_type is api.SupertonicRuntime
++          assert contract.synthesis_method == "synthesize"
++          assert contract.measurement_method == "measure_request"
++          assert contract.discovery_method == "discover_models"
++          assert contract.runtime_identity_method == "runtime_identity"
++          assert contract.caller_owns_text_boundaries is True
++          assert contract.supports_request_measurement is True
++          assert contract.supports_named_voices is True
++          assert contract.supports_voice_level is True
++          assert contract.supports_reference_voice is False
++          assert contract.supports_linguistic_tokens is False
++          assert contract.supports_pronunciation_overrides is False
++          assert contract.supports_whole_request_phonemes is False
++          assert contract.supports_speakers is False
++          assert contract.supports_word_timings is False
++          SynthesisRequest(id="wheel-smoke", text="No model loaded.", language="en")
++          GenerationConfig()
++          RequestMeasure(amount=1, maximum=None)
++          voice = DescribedVoice(id="F1", languages=("en",))
++          model = DiscoveredModel(
++              id="wheel-model",
++              ref="supertonic:wheel-model",
++              display_name="Wheel model",
++              version=None,
++              sample_rate=44100,
++              aliases=(),
++              languages=("en",),
++              voices=(voice,),
++              default_voice="F1",
++              source_revision=None,
++              max_input_tokens=None,
++          )
++          assert runtime_identity(model)["request_api_version"] == "1"
++          assert "onnxvoice" not in sys.modules
++          PY
+       - uses: actions/upload-artifact@v4
+         with:
+           name: python-package-distributions
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index 24ff1b1..0ed5f60 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -17,6 +17,15 @@ jobs:
+       - run: pytest
+       - run: ruff check .
+       - run: mypy
++  request-api-python314:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.14"
++      - run: python -m pip install -e ".[dev]"
++      - run: pytest -q tests/test_request_api_contract.py
+   docs:
+     runs-on: ubuntu-latest
+     steps:
+diff --git a/README.md b/README.md
+index 0282318..ccd42d3 100644
+--- a/README.md
++++ b/README.md
+@@ -62,6 +62,10 @@ print(measurement.amount, measurement.maximum, measurement.fits)
+
+ `RequestMeasure` reports encoded token count and only reports a maximum when model metadata declares `max_input_tokens`. If no maximum is declared, `maximum` and `fits` are `None`; callers must not infer a capacity limit.
+
++`REQUEST_API_VERSION` is `1`. `request_api_contract()` returns a frozen, dependency-light `RequestApiContract` describing the request/result/runtime types, method names, and capabilities; inspecting it does not import OnnxVoice or open model assets. Text boundaries belong to the caller. Named voices, request measurement, and voice-level controls are supported; reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings are not.
++
++`measure_request()` is the public preflight API and shares token accounting with `synthesize()`. If the catalog declares a maximum, an oversized request raises `SynthesisInputTooLongError` before inference; with no declared maximum, `fits` remains `None` rather than guessing.
++
+ ### Metadata-only discovery
+
+ ```python
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 5d55fb1..309aa37 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -10,6 +10,8 @@ OnnxVoice owns catalog retrieval, canonical bundle and semantic voice identity,
+
+ `SupertonicRuntime.synthesize(request, ...)` accepts one `SynthesisRequest`. Each call performs one frontend encoding and at most one inference, passes the configured seed unchanged, and does not split text, join chunk audio, insert silence, peak-normalize, or apply output gain. `GenerationConfig` contains only generation controls; optional voice-level calibration remains a separate argument. `measure_request` reports the encoded token count and compares it only with a model-declared `max_input_tokens`. When capacity metadata is absent, `maximum` and `fits` remain `None`, and synthesis does not reject input based on an invented limit. `SynthesisInputTooLongError` is raised only when a declared maximum is exceeded.
+
++`SupertonicRuntime.synthesize` is the stable atomic integration surface and accepts only `GenerationConfig` plus the separate optional `VoiceLevelConfig`; it does not accept convenience `SynthesisConfig`. `REQUEST_API_VERSION == 1` and `request_api_contract()` expose this boundary as an immutable, side-effect-free contract. Named voices, request measurement, and voice-level control are supported. Reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings are unsupported; these are not placeholder fields on `SynthesisRequest`.
++
+ `SupertonicRuntime.synthesize_text` and package-level `synthesize` remain convenience composition APIs. They retain existing chunking, per-chunk seed progression, inter-chunk silence, normalization, output gain, and complete-utterance audio processing.
+
+ ## Metadata-only discovery
+@@ -18,6 +20,8 @@ OnnxVoice owns catalog retrieval, canonical bundle and semantic voice identity,
+
+ `runtime_identity(model)` reports the installed engine and runtime versions and the available catalog/model revisions. Missing revision metadata remains `None`; it is not synthesized from aliases or local paths.
+
++`runtime_identity()` includes `request_api_version` as a string, so synthesis identity distinguishes request-contract changes without opening a model. `request_api_contract()` can be inspected independently of discovery or runtime creation.
++
+ ## Identity model
+
+ A voice has one canonical OnnxVoice semantic ref, for example `supertonic:supertonic-3/F1`. Its backing asset ref is `supertonic:supertonic-3`. Synthesis language is an independent dimension, so calibration keys pair `(voice_ref, language)` and serialize as `supertonic:supertonic-3/F1@de`. The language suffix is not part of the voice ref.
+diff --git a/docs/troubleshooting.md b/docs/troubleshooting.md
+index 591b177..efe46ec 100644
+--- a/docs/troubleshooting.md
++++ b/docs/troubleshooting.md
+@@ -1,5 +1,11 @@
+ # Troubleshooting
+
++## Request API compatibility
++
++`REQUEST_API_VERSION` is `1`; `request_api_contract()` returns the immutable capability and method contract without importing OnnxVoice or loading model assets. A compatibility probe can inspect these public symbols and runtime methods without calling `from_pretrained()`. The strict `SupertonicRuntime.synthesize()` method handles one caller-shaped request; use `synthesize_text()` or package-level `synthesize()` only when the convenience long-text/chunking behavior is wanted.
++
++Use `measure_request()` to preflight token capacity. It shares token accounting with atomic synthesis. `fits=None` means catalog capacity is undeclared, not unlimited or a guessed default; when a declared limit is exceeded, `SynthesisInputTooLongError` is raised before inference. The contract deliberately reports reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings as unsupported.
++
+ ## Calibration is off
+
+ `VoiceLevelConfig` defaults to `mode="off"`, preserving opt-in catalog correction. Select `VoiceLevelConfig(mode="calibrated")` or pass `--voice-level calibrated` to request catalog lookup.
+diff --git a/pyproject.toml b/pyproject.toml
+index 1902716..e3ac789 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -26,6 +26,7 @@ classifiers = [
+   "Programming Language :: Python :: 3.11",
+   "Programming Language :: Python :: 3.12",
+   "Programming Language :: Python :: 3.13",
++  "Programming Language :: Python :: 3.14",
+   "Topic :: Multimedia :: Sound/Audio :: Speech",
+   "Topic :: Software Development :: Libraries :: Python Modules",
+ ]
+diff --git a/supertonicsynth/__init__.py b/supertonicsynth/__init__.py
+index b8afc85..e7fe3ef 100644
+--- a/supertonicsynth/__init__.py
++++ b/supertonicsynth/__init__.py
+@@ -6,6 +6,7 @@ except ImportError:
+     __version__ = "0.0.0+unknown"
+     __version_tuple__ = (0, 0, 0)
+
++from .api_contract import REQUEST_API_VERSION, RequestApiContract, request_api_contract
+ from .asset_manager import BundleAssetManager
+ from .config import (
+     AVAILABLE_LANGUAGES,
+@@ -67,6 +68,9 @@ __all__ = [
+     "DiscoveredModel",
+     "EmptyTextError",
+     "GenerationConfig",
++    "REQUEST_API_VERSION",
++    "RequestApiContract",
++    "request_api_contract",
+     "InvalidGenerationConfigError",
+     "RequestMeasure",
+     "SynthesisInputTooLongError",
+diff --git a/supertonicsynth/api_contract.py b/supertonicsynth/api_contract.py
+new file mode 100644
+index 0000000..89b56cd
+--- /dev/null
++++ b/supertonicsynth/api_contract.py
+@@ -0,0 +1,59 @@
++"""Versioned public contract for the atomic request API."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++
++from .runtime import SupertonicRuntime
++from .types import AtomicSynthesisResult, SynthesisRequest
++
++REQUEST_API_VERSION = 1
++
++
++@dataclass(frozen=True, slots=True)
++class RequestApiContract:
++    """Inspectable request API types, methods, and supported capabilities."""
++
++    version: int
++    request_type: type[SynthesisRequest]
++    result_type: type[AtomicSynthesisResult]
++    runtime_type: type[SupertonicRuntime]
++    synthesis_method: str
++    measurement_method: str
++    discovery_method: str
++    runtime_identity_method: str
++    caller_owns_text_boundaries: bool
++    supports_request_measurement: bool
++    supports_named_voices: bool
++    supports_reference_voice: bool
++    supports_linguistic_tokens: bool
++    supports_pronunciation_overrides: bool
++    supports_whole_request_phonemes: bool
++    supports_speakers: bool
++    supports_word_timings: bool
++    supports_voice_level: bool
++
++
++def request_api_contract() -> RequestApiContract:
++    """Return the immutable request API contract without opening model assets."""
++
++    return RequestApiContract(
++        version=REQUEST_API_VERSION,
++        request_type=SynthesisRequest,
++        result_type=AtomicSynthesisResult,
++        runtime_type=SupertonicRuntime,
++        synthesis_method="synthesize",
++        measurement_method="measure_request",
++        discovery_method="discover_models",
++        runtime_identity_method="runtime_identity",
++        caller_owns_text_boundaries=True,
++        supports_request_measurement=True,
++        supports_named_voices=True,
++        supports_reference_voice=False,
++        supports_linguistic_tokens=False,
++        supports_pronunciation_overrides=False,
++        supports_whole_request_phonemes=False,
++        supports_speakers=False,
++        supports_word_timings=False,
++        supports_voice_level=True,
++    )
+diff --git a/supertonicsynth/discovery.py b/supertonicsynth/discovery.py
+index 3f1fbfa..0ee2a20 100644
+--- a/supertonicsynth/discovery.py
++++ b/supertonicsynth/discovery.py
+@@ -222,12 +222,14 @@ def runtime_identity(model: DiscoveredModel | None = None) -> dict[str, str | No
+     if model is not None and not isinstance(model, DiscoveredModel):
+         raise TypeError("model must be a DiscoveredModel or None")
+     from . import __version__
++    from .api_contract import REQUEST_API_VERSION
+
+     engine_version = _distribution_version("supertonicsynth") or __version__
+     source_revision = model.source_revision if model is not None else None
+     model_revision = (model.version or source_revision) if model is not None else None
+     return {
+         "engine_version": engine_version,
++        "request_api_version": str(REQUEST_API_VERSION),
+         "runtime_revision": _distribution_version("onnxvoice"),
+         "catalog_revision": source_revision,
+         "model_revision": model_revision,
+diff --git a/tests/test_discovery.py b/tests/test_discovery.py
+index e756fea..be0d2ab 100644
+--- a/tests/test_discovery.py
++++ b/tests/test_discovery.py
+@@ -194,12 +194,14 @@ def test_runtime_identity_without_and_with_model(monkeypatch):
+
+     assert set(without_model) == {
+         "engine_version",
++        "request_api_version",
+         "runtime_revision",
+         "catalog_revision",
+         "model_revision",
+     }
+     assert without_model["engine_version"]
+     assert without_model["catalog_revision"] is None
++    assert without_model["request_api_version"] == "1"
+     assert without_model["model_revision"] is None
+     assert with_model["catalog_revision"] == "a" * 40
+     assert with_model["model_revision"] == "3.0"
+diff --git a/tests/test_public_api.py b/tests/test_public_api.py
+index 4374388..3eeb9b8 100644
+--- a/tests/test_public_api.py
++++ b/tests/test_public_api.py
+@@ -6,6 +6,9 @@ import supertonicsynth
+ REQUIRED_PUBLIC_API = (
+     "SynthesisRequest",
+     "GenerationConfig",
++    "REQUEST_API_VERSION",
++    "RequestApiContract",
++    "request_api_contract",
+     "AtomicSynthesisResult",
+     "RequestMeasure",
+     "SynthesisInputTooLongError",
+@@ -31,6 +34,9 @@ from supertonicsynth import (
+     DescribedVoice,
+     DiscoveredModel,
+     GenerationConfig,
++    REQUEST_API_VERSION,
++    RequestApiContract,
++    request_api_contract,
+     RequestMeasure,
+     SynthesisInputTooLongError,
+     SynthesisRequest,
+diff --git a/tests/test_request_api_contract.py b/tests/test_request_api_contract.py
+new file mode 100644
+index 0000000..2265a58
+--- /dev/null
++++ b/tests/test_request_api_contract.py
+@@ -0,0 +1,105 @@
++import subprocess
++import sys
++from dataclasses import FrozenInstanceError
++
++import pytest
++
++import supertonicsynth
++from supertonicsynth import (
++    AtomicSynthesisResult,
++    DescribedVoice,
++    GenerationConfig,
++    RequestApiContract,
++    RequestMeasure,
++    SupertonicRuntime,
++    SynthesisRequest,
++    request_api_contract,
++)
++
++
++def test_request_api_version_is_public():
++    assert supertonicsynth.REQUEST_API_VERSION == 1
++    assert "REQUEST_API_VERSION" in supertonicsynth.__all__
++    assert isinstance(request_api_contract(), RequestApiContract)
++
++
++def test_request_api_contract_is_dependency_light():
++    code = """
++import sys
++import supertonicsynth
++from supertonicsynth import (
++    AtomicSynthesisResult,
++    GenerationConfig,
++    RequestApiContract,
++    RequestMeasure,
++    SynthesisRequest,
++    SupertonicRuntime,
++    request_api_contract,
++)
++
++contract = request_api_contract()
++assert contract.request_type is SynthesisRequest
++assert contract.result_type is AtomicSynthesisResult
++assert contract.runtime_type is SupertonicRuntime
++assert isinstance(GenerationConfig(), GenerationConfig)
++assert RequestMeasure(amount=1, maximum=None).fits is None
++assert isinstance(contract, RequestApiContract)
++assert 'onnxvoice' not in sys.modules
++"""
++    subprocess.run([sys.executable, "-c", code], check=True, capture_output=True, text=True)
++
++
++def test_request_api_contract_declares_types_methods_and_capabilities():
++    contract = request_api_contract()
++
++    assert contract.version == supertonicsynth.REQUEST_API_VERSION == 1
++    assert contract.request_type is SynthesisRequest
++    assert contract.result_type is AtomicSynthesisResult
++    assert contract.runtime_type is SupertonicRuntime
++    assert contract.synthesis_method == "synthesize"
++    assert contract.measurement_method == "measure_request"
++    assert contract.discovery_method == "discover_models"
++    assert contract.runtime_identity_method == "runtime_identity"
++    assert contract.caller_owns_text_boundaries is True
++    assert contract.supports_request_measurement is True
++    assert contract.supports_named_voices is True
++    assert contract.supports_reference_voice is False
++    assert contract.supports_linguistic_tokens is False
++    assert contract.supports_pronunciation_overrides is False
++    assert contract.supports_whole_request_phonemes is False
++    assert contract.supports_speakers is False
++    assert contract.supports_word_timings is False
++    assert contract.supports_voice_level is True
++
++    with pytest.raises(FrozenInstanceError):
++        contract.version = 2
++
++
++def test_no_model_request_surface_records_and_runtime_methods():
++    request = SynthesisRequest(id="contract", text="One caller-shaped request.", language="en")
++    generation = GenerationConfig()
++    measure = RequestMeasure(amount=1, maximum=None)
++    voice = DescribedVoice(id="F1", languages=("en",))
++    model = supertonicsynth.DiscoveredModel(
++        id="supertonic-3",
++        ref="supertonic:supertonic-3",
++        display_name="Supertonic 3",
++        version=None,
++        sample_rate=44100,
++        aliases=("supertonic",),
++        languages=("en",),
++        voices=(voice,),
++        default_voice="F1",
++        source_revision=None,
++        max_input_tokens=None,
++    )
++
++    assert request.text == "One caller-shaped request."
++    assert generation.seed is None
++    assert measure.fits is None
++    assert model.voice_ids == ("F1",)
++    assert callable(SupertonicRuntime.from_pretrained)
++    assert callable(SupertonicRuntime.measure_request)
++    assert callable(SupertonicRuntime.synthesize)
++    assert callable(SupertonicRuntime.close)
++    assert "onnxvoice" not in sys.modules
+diff --git a/tests/test_runtime_atomic.py b/tests/test_runtime_atomic.py
+index b1db635..206aaa3 100644
+--- a/tests/test_runtime_atomic.py
++++ b/tests/test_runtime_atomic.py
+@@ -1,4 +1,5 @@
+ from types import SimpleNamespace
++from typing import get_type_hints
+
+ import numpy as np
+ import pytest
+@@ -7,13 +8,14 @@ import supertonicsynth.runtime as runtime_module
+ from supertonicsynth._onnxvoice import ResolvedSupertonicBundle
+ from supertonicsynth.errors import (
+     ClosedRuntimeError,
++    InvalidGenerationConfigError,
+     InvalidRequestError,
+     ModelInferenceError,
+     SynthesisInputTooLongError,
+ )
+ from supertonicsynth.runtime import SupertonicRuntime
+ from supertonicsynth.style import VoiceStyle
+-from supertonicsynth.types import GenerationConfig, SynthesisRequest
++from supertonicsynth.types import GenerationConfig, SynthesisConfig, SynthesisRequest
+ from supertonicsynth.voice_level import VoiceLevelConfig
+
+
+@@ -105,6 +107,18 @@ def test_measure_request_uses_frontend_without_inference(tmp_path):
+     assert fake.calls == []
+
+
++def test_measurement_and_synthesis_token_counts_match(tmp_path):
++    runtime, fake = make_runtime(tmp_path, max_input_tokens=100)
++    request = SynthesisRequest(id="parity", text="Shared token accounting.", language="en")
++
++    measure = runtime.measure_request(request)
++    result = runtime.synthesize(request, voice="F1")
++
++    assert result.metadata["token_count"] == measure.amount
++    assert measure.fits is True
++    assert len(fake.calls) == 1
++
++
+ def test_atomic_synthesis_rejects_request_over_declared_capacity(tmp_path):
+     runtime, fake = make_runtime(tmp_path, max_input_tokens=2)
+     request = SynthesisRequest(id="seg", text="Too long.", language="en")
+@@ -117,7 +131,7 @@ def test_atomic_synthesis_rejects_request_over_declared_capacity(tmp_path):
+     error = exc_info.value
+     assert error.text_length == len(request.text)
+     assert error.token_count == measure.amount
+-    assert error.max_tokens == 2
++    assert error.max_tokens == measure.maximum == 2
+     assert error.model_id == "supertonic-3"
+     assert fake.calls == []
+
+@@ -133,6 +147,17 @@ def test_unknown_capacity_does_not_invent_a_fit_or_split(tmp_path):
+     assert len(fake.calls) == 1
+
+
++def test_atomic_api_never_uses_synthesis_config(tmp_path):
++    runtime, fake = make_runtime(tmp_path)
++    request = SynthesisRequest(id="config", text="Atomic controls only.", language="en")
++
++    config_parameter = get_type_hints(SupertonicRuntime.synthesize)["config"]
++    assert config_parameter == GenerationConfig | None
++    with pytest.raises(InvalidGenerationConfigError, match="GenerationConfig"):
++        runtime.synthesize(request, voice="F1", config=SynthesisConfig())
++    assert fake.calls == []
++
++
+ def test_atomic_synthesis_supports_custom_style_without_managed_identity(tmp_path):
+     runtime, fake = make_runtime(tmp_path)
+     custom = VoiceStyle(

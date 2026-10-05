@@ -1,0 +1,24 @@
+rows:
+  - sha: 7cee17f150c1ed1a56d487575e13286134daaa12
+    inspected: true
+    inspected_paths:
+      - .github/workflows/python-publish.yml
+      - .github/workflows/tests.yml
+      - README.md
+      - docs/architecture.md
+      - docs/troubleshooting.md
+      - pyproject.toml
+      - supertonicsynth/__init__.py
+      - supertonicsynth/api_contract.py
+      - supertonicsynth/discovery.py
+      - tests/test_discovery.py
+      - tests/test_public_api.py
+      - tests/test_request_api_contract.py
+      - tests/test_runtime_atomic.py
+    observed_behavior: "Adds a versioned, dependency-light public request API contract; exposes request measurement and declared-capacity validation; adds public API tests, documentation, Python 3.14 CI coverage, and package smoke checks."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false
