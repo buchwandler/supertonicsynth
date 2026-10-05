@@ -222,12 +222,14 @@ def runtime_identity(model: DiscoveredModel | None = None) -> dict[str, str | No
     if model is not None and not isinstance(model, DiscoveredModel):
         raise TypeError("model must be a DiscoveredModel or None")
     from . import __version__
+    from .api_contract import REQUEST_API_VERSION
 
     engine_version = _distribution_version("supertonicsynth") or __version__
     source_revision = model.source_revision if model is not None else None
     model_revision = (model.version or source_revision) if model is not None else None
     return {
         "engine_version": engine_version,
+        "request_api_version": str(REQUEST_API_VERSION),
         "runtime_revision": _distribution_version("onnxvoice"),
         "catalog_revision": source_revision,
         "model_revision": model_revision,

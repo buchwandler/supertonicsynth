@@ -6,6 +6,7 @@ except ImportError:
     __version__ = "0.0.0+unknown"
     __version_tuple__ = (0, 0, 0)
 
+from .api_contract import REQUEST_API_VERSION, RequestApiContract, request_api_contract
 from .asset_manager import BundleAssetManager
 from .config import (
     AVAILABLE_LANGUAGES,
@@ -67,6 +68,9 @@ __all__ = [
     "DiscoveredModel",
     "EmptyTextError",
     "GenerationConfig",
+    "REQUEST_API_VERSION",
+    "RequestApiContract",
+    "request_api_contract",
     "InvalidGenerationConfigError",
     "RequestMeasure",
     "SynthesisInputTooLongError",

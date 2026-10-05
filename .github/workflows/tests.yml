@@ -17,6 +17,15 @@ jobs:
       - run: pytest
       - run: ruff check .
       - run: mypy
+  request-api-python314:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: python -m pip install -e ".[dev]"
+      - run: pytest -q tests/test_request_api_contract.py
   docs:
     runs-on: ubuntu-latest
     steps:

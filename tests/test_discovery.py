@@ -194,12 +194,14 @@ def test_runtime_identity_without_and_with_model(monkeypatch):
 
     assert set(without_model) == {
         "engine_version",
+        "request_api_version",
         "runtime_revision",
         "catalog_revision",
         "model_revision",
     }
     assert without_model["engine_version"]
     assert without_model["catalog_revision"] is None
+    assert without_model["request_api_version"] == "1"
     assert without_model["model_revision"] is None
     assert with_model["catalog_revision"] == "a" * 40
     assert with_model["model_revision"] == "3.0"

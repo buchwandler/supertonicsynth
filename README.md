@@ -62,6 +62,10 @@ print(measurement.amount, measurement.maximum, measurement.fits)
 
 `RequestMeasure` reports encoded token count and only reports a maximum when model metadata declares `max_input_tokens`. If no maximum is declared, `maximum` and `fits` are `None`; callers must not infer a capacity limit.
 
+`REQUEST_API_VERSION` is `1`. `request_api_contract()` returns a frozen, dependency-light `RequestApiContract` describing the request/result/runtime types, method names, and capabilities; inspecting it does not import OnnxVoice or open model assets. Text boundaries belong to the caller. Named voices, request measurement, and voice-level controls are supported; reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings are not.
+
+`measure_request()` is the public preflight API and shares token accounting with `synthesize()`. If the catalog declares a maximum, an oversized request raises `SynthesisInputTooLongError` before inference; with no declared maximum, `fits` remains `None` rather than guessing.
+
 ### Metadata-only discovery
 
 ```python

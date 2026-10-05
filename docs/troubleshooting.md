@@ -1,5 +1,11 @@
 # Troubleshooting
 
+## Request API compatibility
+
+`REQUEST_API_VERSION` is `1`; `request_api_contract()` returns the immutable capability and method contract without importing OnnxVoice or loading model assets. A compatibility probe can inspect these public symbols and runtime methods without calling `from_pretrained()`. The strict `SupertonicRuntime.synthesize()` method handles one caller-shaped request; use `synthesize_text()` or package-level `synthesize()` only when the convenience long-text/chunking behavior is wanted.
+
+Use `measure_request()` to preflight token capacity. It shares token accounting with atomic synthesis. `fits=None` means catalog capacity is undeclared, not unlimited or a guessed default; when a declared limit is exceeded, `SynthesisInputTooLongError` is raised before inference. The contract deliberately reports reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings as unsupported.
+
 ## Calibration is off
 
 `VoiceLevelConfig` defaults to `mode="off"`, preserving opt-in catalog correction. Select `VoiceLevelConfig(mode="calibrated")` or pass `--voice-level calibrated` to request catalog lookup.

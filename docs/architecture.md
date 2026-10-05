@@ -10,6 +10,8 @@ OnnxVoice owns catalog retrieval, canonical bundle and semantic voice identity, 
 
 `SupertonicRuntime.synthesize(request, ...)` accepts one `SynthesisRequest`. Each call performs one frontend encoding and at most one inference, passes the configured seed unchanged, and does not split text, join chunk audio, insert silence, peak-normalize, or apply output gain. `GenerationConfig` contains only generation controls; optional voice-level calibration remains a separate argument. `measure_request` reports the encoded token count and compares it only with a model-declared `max_input_tokens`. When capacity metadata is absent, `maximum` and `fits` remain `None`, and synthesis does not reject input based on an invented limit. `SynthesisInputTooLongError` is raised only when a declared maximum is exceeded.
 
+`SupertonicRuntime.synthesize` is the stable atomic integration surface and accepts only `GenerationConfig` plus the separate optional `VoiceLevelConfig`; it does not accept convenience `SynthesisConfig`. `REQUEST_API_VERSION == 1` and `request_api_contract()` expose this boundary as an immutable, side-effect-free contract. Named voices, request measurement, and voice-level control are supported. Reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings are unsupported; these are not placeholder fields on `SynthesisRequest`.
+
 `SupertonicRuntime.synthesize_text` and package-level `synthesize` remain convenience composition APIs. They retain existing chunking, per-chunk seed progression, inter-chunk silence, normalization, output gain, and complete-utterance audio processing.
 
 ## Metadata-only discovery
@@ -17,6 +19,8 @@ OnnxVoice owns catalog retrieval, canonical bundle and semantic voice identity, 
 `discover_models` maps the OnnxVoice catalog to typed model and voice records. It reads catalog metadata only; it does not install assets or create inference sessions. Catalog lookup may retrieve metadata unless `offline=True` is selected. Optional catalog values remain absent or unknown when not declared. The inspected Supertonic catalog declares no maximum input-token count, so `max_input_tokens` and request fit remain unknown.
 
 `runtime_identity(model)` reports the installed engine and runtime versions and the available catalog/model revisions. Missing revision metadata remains `None`; it is not synthesized from aliases or local paths.
+
+`runtime_identity()` includes `request_api_version` as a string, so synthesis identity distinguishes request-contract changes without opening a model. `request_api_contract()` can be inspected independently of discovery or runtime creation.
 
 ## Identity model
 

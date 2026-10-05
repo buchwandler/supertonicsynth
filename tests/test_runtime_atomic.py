@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import get_type_hints
 
 import numpy as np
 import pytest
@@ -7,13 +8,14 @@ import supertonicsynth.runtime as runtime_module
 from supertonicsynth._onnxvoice import ResolvedSupertonicBundle
 from supertonicsynth.errors import (
     ClosedRuntimeError,
+    InvalidGenerationConfigError,
     InvalidRequestError,
     ModelInferenceError,
     SynthesisInputTooLongError,
 )
 from supertonicsynth.runtime import SupertonicRuntime
 from supertonicsynth.style import VoiceStyle
-from supertonicsynth.types import GenerationConfig, SynthesisRequest
+from supertonicsynth.types import GenerationConfig, SynthesisConfig, SynthesisRequest
 from supertonicsynth.voice_level import VoiceLevelConfig
 
 
@@ -105,6 +107,18 @@ def test_measure_request_uses_frontend_without_inference(tmp_path):
     assert fake.calls == []
 
 
+def test_measurement_and_synthesis_token_counts_match(tmp_path):
+    runtime, fake = make_runtime(tmp_path, max_input_tokens=100)
+    request = SynthesisRequest(id="parity", text="Shared token accounting.", language="en")
+
+    measure = runtime.measure_request(request)
+    result = runtime.synthesize(request, voice="F1")
+
+    assert result.metadata["token_count"] == measure.amount
+    assert measure.fits is True
+    assert len(fake.calls) == 1
+
+
 def test_atomic_synthesis_rejects_request_over_declared_capacity(tmp_path):
     runtime, fake = make_runtime(tmp_path, max_input_tokens=2)
     request = SynthesisRequest(id="seg", text="Too long.", language="en")
@@ -117,7 +131,7 @@ def test_atomic_synthesis_rejects_request_over_declared_capacity(tmp_path):
     error = exc_info.value
     assert error.text_length == len(request.text)
     assert error.token_count == measure.amount
-    assert error.max_tokens == 2
+    assert error.max_tokens == measure.maximum == 2
     assert error.model_id == "supertonic-3"
     assert fake.calls == []
 
@@ -131,6 +145,17 @@ def test_unknown_capacity_does_not_invent_a_fit_or_split(tmp_path):
     result = runtime.synthesize(request, voice="F1")
     assert result.id == "seg"
     assert len(fake.calls) == 1
+
+
+def test_atomic_api_never_uses_synthesis_config(tmp_path):
+    runtime, fake = make_runtime(tmp_path)
+    request = SynthesisRequest(id="config", text="Atomic controls only.", language="en")
+
+    config_parameter = get_type_hints(SupertonicRuntime.synthesize)["config"]
+    assert config_parameter == GenerationConfig | None
+    with pytest.raises(InvalidGenerationConfigError, match="GenerationConfig"):
+        runtime.synthesize(request, voice="F1", config=SynthesisConfig())
+    assert fake.calls == []
 
 
 def test_atomic_synthesis_supports_custom_style_without_managed_identity(tmp_path):
