@@ -8,7 +8,12 @@ from types import MappingProxyType
 from typing import Any
 
 from ._onnxvoice import list_pretrained_bundles
-from .config import UNKNOWN_LANGUAGE
+from .config import (
+    CAPACITY_POLICY_REVISION,
+    DEFAULT_MODEL,
+    MAX_INPUT_TOKENS,
+    UNKNOWN_LANGUAGE,
+)
 from .errors import InvalidLanguageError, RuntimeCapabilityError
 
 
@@ -49,7 +54,7 @@ class DiscoveredModel:
     voices: tuple[DescribedVoice, ...]
     default_voice: str | None
     source_revision: str | None
-    max_input_tokens: int | None
+    max_input_tokens: int
     runtime_available: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -70,14 +75,12 @@ class DiscoveredModel:
             or self.sample_rate <= 0
         ):
             raise RuntimeCapabilityError("model sample_rate must be a positive integer or None")
-        if self.max_input_tokens is not None and (
+        if (
             isinstance(self.max_input_tokens, bool)
             or not isinstance(self.max_input_tokens, int)
             or self.max_input_tokens <= 0
         ):
-            raise RuntimeCapabilityError(
-                "model max_input_tokens must be a positive integer or None"
-            )
+            raise RuntimeCapabilityError("model max_input_tokens must be a positive integer")
         if not isinstance(self.aliases, tuple) or any(
             not isinstance(alias, str) or not alias for alias in self.aliases
         ):
@@ -106,16 +109,26 @@ def _metadata_string(metadata: Mapping[str, Any], key: str) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
-def _max_input_tokens(metadata: Mapping[str, Any]) -> int | None:
-    value = metadata.get("max_input_tokens")
-    runtime = metadata.get("runtime")
-    if value is None and isinstance(runtime, Mapping):
-        value = runtime.get("max_input_tokens")
-    if value is None:
-        return None
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise RuntimeCapabilityError("catalog max_input_tokens must be a positive integer")
-    return value
+def _max_input_tokens(model_id: str, metadata: Mapping[str, Any]) -> int:
+    if model_id != DEFAULT_MODEL:
+        raise RuntimeCapabilityError(f"no capacity policy is defined for model {model_id!r}")
+
+    runtime_metadata = metadata.get("runtime")
+    sources = (metadata, runtime_metadata)
+    for source in sources:
+        if not isinstance(source, Mapping) or "max_input_tokens" not in source:
+            continue
+        value = source["max_input_tokens"]
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise RuntimeCapabilityError("catalog max_input_tokens must be a positive integer")
+        if value != MAX_INPUT_TOKENS:
+            raise RuntimeCapabilityError(
+                f"catalog max_input_tokens {value} conflicts with package capacity policy "
+                f"{MAX_INPUT_TOKENS}"
+            )
+    return MAX_INPUT_TOKENS
 
 
 def _describe_model(item: Any) -> DiscoveredModel:
@@ -177,8 +190,8 @@ def _describe_model(item: Any) -> DiscoveredModel:
             voices=voices,
             default_voice=item.default_voice,
             source_revision=source_revision,
-            max_input_tokens=_max_input_tokens(metadata),
-            metadata=metadata,
+            max_input_tokens=_max_input_tokens(model_id, metadata),
+            metadata={**metadata, "capacity_policy_revision": CAPACITY_POLICY_REVISION},
         )
     except RuntimeCapabilityError:
         raise

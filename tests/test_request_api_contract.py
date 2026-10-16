@@ -91,7 +91,7 @@ def test_no_model_request_surface_records_and_runtime_methods():
         voices=(voice,),
         default_voice="F1",
         source_revision=None,
-        max_input_tokens=None,
+        max_input_tokens=512,
     )
 
     assert request.text == "One caller-shaped request."

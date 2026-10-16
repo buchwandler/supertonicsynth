@@ -23,6 +23,7 @@ from .config import (
     DEFAULT_MAX_CHUNK_LENGTH_KO,
     DEFAULT_MODEL,
     DEFAULT_VOICE,
+    MAX_INPUT_TOKENS,
     MAX_SEED,
     MAX_TEXT_LENGTH,
 )
@@ -33,7 +34,6 @@ from .errors import (
     InvalidRequestError,
     InvalidVoiceStyleError,
     ModelInferenceError,
-    RuntimeCapabilityError,
     SynthesisInputTooLongError,
 )
 from .frontend import FrontendBatch, SupertonicFrontend
@@ -158,18 +158,8 @@ class SupertonicRuntime:
         return tuple(sorted(self.bundle.style_paths))
 
     @property
-    def max_input_tokens(self) -> int | None:
-        value = self.bundle.metadata.get("max_input_tokens")
-        runtime_metadata = self.bundle.metadata.get("runtime")
-        if value is None and isinstance(runtime_metadata, Mapping):
-            value = runtime_metadata.get("max_input_tokens")
-        if value is None:
-            return None
-        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-            raise RuntimeCapabilityError(
-                "model max_input_tokens metadata must be a positive integer"
-            )
-        return value
+    def max_input_tokens(self) -> int:
+        return MAX_INPUT_TOKENS
 
     def _ensure_open(self) -> None:
         if self._closed:
@@ -180,6 +170,18 @@ class SupertonicRuntime:
             amount=int(batch.text_ids.size),
             maximum=self.max_input_tokens,
         )
+
+    def _validate_capacity(self, batch: FrontendBatch, text: str) -> RequestMeasure:
+        measure = self._measure_batch(batch)
+        if measure.fits is False:
+            assert measure.maximum is not None
+            raise SynthesisInputTooLongError(
+                text_length=len(text),
+                token_count=measure.amount,
+                max_tokens=measure.maximum,
+                model_id=self.bundle.bundle_id or self.bundle.ref,
+            )
+        return measure
 
     def measure_request(self, request: SynthesisRequest) -> RequestMeasure:
         self._ensure_open()
@@ -258,15 +260,7 @@ class SupertonicRuntime:
             raise InvalidVoiceStyleError("voice must be a managed voice name or VoiceStyle")
 
         batch = self.frontend.encode(request.text, request.language)
-        measure = self._measure_batch(batch)
-        if measure.fits is False:
-            raise SynthesisInputTooLongError(
-                text_length=len(request.text),
-                token_count=measure.amount,
-                max_tokens=measure.maximum,
-                model_id=self.bundle.bundle_id or self.bundle.ref,
-            )
-
+        measure = self._validate_capacity(batch, request.text)
         audio = self._infer_batch(batch, style=style, config=generation)
         backing_ref = canonical_backing_ref(self.bundle)
         voice_ref = canonical_voice_ref(self.bundle, voice)
@@ -380,6 +374,7 @@ class SupertonicRuntime:
         audio_parts: list[np.ndarray] = []
         for index, chunk in enumerate(chunks):
             batch = self.frontend.encode(chunk, language)
+            self._validate_capacity(batch, chunk)
             call_seed = None if effective.seed is None else effective.seed + index
             audio_parts.append(
                 self._infer_batch(

@@ -60,17 +60,19 @@ class SynthesisInputTooLongError(InvalidRequestError):
         *,
         text_length: int,
         token_count: int,
-        max_tokens: int | None,
+        max_tokens: int,
         model_id: str | None,
     ) -> None:
         self.text_length = text_length
+        self.amount = token_count
         self.token_count = token_count
         self.max_tokens = max_tokens
+        self.maximum = max_tokens
+        self.unit = "model_tokens"
         self.model_id = model_id
-        maximum = "unknown" if max_tokens is None else str(max_tokens)
         model = "unknown model" if model_id is None else model_id
         super().__init__(
-            f"encoded request has {token_count} tokens, exceeding maximum {maximum} for {model}"
+            f"encoded request has {token_count} tokens, exceeding maximum {max_tokens} for {model}"
         )
 
 

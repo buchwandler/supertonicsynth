@@ -165,7 +165,7 @@ jobs:
               voices=(voice,),
               default_voice="F1",
               source_revision=None,
-              max_input_tokens=None,
+              max_input_tokens=512,
           )
           assert runtime_identity(model)["request_api_version"] == "1"
           assert "onnxvoice" not in sys.modules

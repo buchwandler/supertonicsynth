@@ -34,7 +34,7 @@ class FakeRuntime:
         self.closed = True
 
 
-def make_runtime(tmp_path, *, audio=None, sample_rate=1000, max_input_tokens=None):
+def make_runtime(tmp_path, *, audio=None, sample_rate=1000):
     indexer = tmp_path / "unicode_indexer.json"
     indexer.write_text("[" + ",".join(str(i) for i in range(128)) + "]")
     config = tmp_path / "tts.json"
@@ -45,8 +45,6 @@ def make_runtime(tmp_path, *, audio=None, sample_rate=1000, max_input_tokens=Non
     )
     installation = SimpleNamespace(kind="bundle")
     metadata = {"managed": True}
-    if max_input_tokens is not None:
-        metadata["runtime"] = {"max_input_tokens": max_input_tokens}
     bundle = ResolvedSupertonicBundle(
         ref="supertonic:supertonic-3",
         bundle_id="supertonic-3",
@@ -95,20 +93,20 @@ def test_atomic_synthesis_encodes_once_infers_once_and_never_chunks(tmp_path, mo
 
 
 def test_measure_request_uses_frontend_without_inference(tmp_path):
-    runtime, fake = make_runtime(tmp_path, max_input_tokens=100)
+    runtime, fake = make_runtime(tmp_path)
     request = SynthesisRequest(id="seg", text="Measure me.", language="en")
 
     measure = runtime.measure_request(request)
 
     assert measure.amount > 0
-    assert measure.maximum == 100
+    assert measure.maximum == 512
     assert measure.unit == "tokens"
     assert measure.fits is True
     assert fake.calls == []
 
 
 def test_measurement_and_synthesis_token_counts_match(tmp_path):
-    runtime, fake = make_runtime(tmp_path, max_input_tokens=100)
+    runtime, fake = make_runtime(tmp_path)
     request = SynthesisRequest(id="parity", text="Shared token accounting.", language="en")
 
     measure = runtime.measure_request(request)
@@ -119,29 +117,55 @@ def test_measurement_and_synthesis_token_counts_match(tmp_path):
     assert len(fake.calls) == 1
 
 
-def test_atomic_synthesis_rejects_request_over_declared_capacity(tmp_path):
-    runtime, fake = make_runtime(tmp_path, max_input_tokens=2)
-    request = SynthesisRequest(id="seg", text="Too long.", language="en")
+@pytest.mark.parametrize(("token_count", "fits"), [(511, True), (512, True), (513, False)])
+def test_synthesis_matches_measured_capacity_boundary(tmp_path, token_count, fits):
+    runtime, fake = make_runtime(tmp_path)
+    request = SynthesisRequest(
+        id=f"boundary-{token_count}", text="a" * (token_count - 10), language="en"
+    )
 
     measure = runtime.measure_request(request)
-    assert measure.fits is False
-    with pytest.raises(SynthesisInputTooLongError) as exc_info:
-        runtime.synthesize(request, voice="F1")
+    assert measure.amount == token_count
+    assert measure.maximum == 512
+    assert measure.fits is fits
 
-    error = exc_info.value
-    assert error.text_length == len(request.text)
-    assert error.token_count == measure.amount
-    assert error.max_tokens == measure.maximum == 2
-    assert error.model_id == "supertonic-3"
+    if fits:
+        result = runtime.synthesize(request, voice="F1")
+        assert result.metadata["token_count"] == token_count
+        assert len(fake.calls) == 1
+        assert len(fake.calls[0][0]) == token_count
+    else:
+        with pytest.raises(SynthesisInputTooLongError) as exc_info:
+            runtime.synthesize(request, voice="F1")
+
+        error = exc_info.value
+        assert error.text_length == len(request.text)
+        assert error.amount == error.token_count == token_count
+        assert error.max_tokens == error.maximum == measure.maximum == 512
+        assert error.unit == "model_tokens"
+        assert error.model_id == "supertonic-3"
+        assert fake.calls == []
+
+
+def test_synthesize_text_rejects_over_capacity_chunk(tmp_path):
+    runtime, fake = make_runtime(tmp_path)
+
+    with pytest.raises(SynthesisInputTooLongError) as exc_info:
+        runtime.synthesize_text("a" * 503, voice="F1", language="en", max_chunk_length=600)
+
+    assert exc_info.value.amount == 513
+    assert exc_info.value.maximum == 512
     assert fake.calls == []
 
 
-def test_unknown_capacity_does_not_invent_a_fit_or_split(tmp_path):
+def test_package_capacity_is_authoritative_without_catalog_metadata(tmp_path):
     runtime, fake = make_runtime(tmp_path)
-    request = SynthesisRequest(id="seg", text="No declared model limit.", language="en")
+    request = SynthesisRequest(id="seg", text="Within the package limit.", language="en")
 
-    assert runtime.max_input_tokens is None
-    assert runtime.measure_request(request).fits is None
+    assert runtime.max_input_tokens == 512
+    measure = runtime.measure_request(request)
+    assert measure.maximum == 512
+    assert measure.fits is True
     result = runtime.synthesize(request, voice="F1")
     assert result.id == "seg"
     assert len(fake.calls) == 1

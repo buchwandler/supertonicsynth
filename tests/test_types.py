@@ -212,3 +212,4 @@ def test_input_too_long_error_exposes_structured_capacity():
         10,
         "supertonic-3",
     )
+    assert (error.amount, error.maximum, error.unit) == (12, 10, "model_tokens")

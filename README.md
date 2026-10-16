@@ -60,11 +60,11 @@ with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
 print(measurement.amount, measurement.maximum, measurement.fits)
 ```
 
-`RequestMeasure` reports encoded token count and only reports a maximum when model metadata declares `max_input_tokens`. If no maximum is declared, `maximum` and `fits` are `None`; callers must not infer a capacity limit.
+`RequestMeasure` reports the exact model-input token count emitted by Supertonic-3's frontend, including language control tokens. The package applies a versioned operational limit of 512 model tokens (`capacity_policy_revision = "supertonic-3-input-512-v1"`), so `maximum` is always 512 and `fits` is a boolean. This is a package policy, not a fixed sequence limit declared by the dynamic ONNX graph.
 
 `REQUEST_API_VERSION` is `1`. `request_api_contract()` returns a frozen, dependency-light `RequestApiContract` describing the request/result/runtime types, method names, and capabilities; inspecting it does not import OnnxVoice or open model assets. Text boundaries belong to the caller. Named voices, request measurement, and voice-level controls are supported; reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings are not.
 
-`measure_request()` is the public preflight API and shares token accounting with `synthesize()`. If the catalog declares a maximum, an oversized request raises `SynthesisInputTooLongError` before inference; with no declared maximum, `fits` remains `None` rather than guessing.
+`measure_request()` is the public preflight API and shares exact frontend token accounting with synthesis. An atomic request over 512 model tokens raises `SynthesisInputTooLongError` before inference; atomic synthesis does not truncate or split it. The convenience `synthesize_text()` API retains its existing character-based chunking and checks each encoded chunk against the same token limit.
 
 ### Metadata-only discovery
 
@@ -76,7 +76,7 @@ for model in discover_models(language="de"):
     print(runtime_identity(model))
 ```
 
-Discovery reads typed OnnxVoice catalog metadata. It does not install model assets or open runtime sessions. Pass `offline=True` to use cached catalog metadata only. Optional catalog fields, including `max_input_tokens`, remain unknown when the catalog does not declare them.
+Discovery reads typed OnnxVoice catalog metadata. It does not install model assets or open runtime sessions. Pass `offline=True` to use cached catalog metadata only. For `supertonic-3`, `max_input_tokens` is the package-defined limit of 512 even when the catalog omits a maximum; `metadata["capacity_policy_revision"]` identifies the effective policy revision.
 
 ## CLI
 

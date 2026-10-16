@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 import supertonicsynth._onnxvoice as onnxvoice_boundary
+from supertonicsynth.config import CAPACITY_POLICY_REVISION
 from supertonicsynth.discovery import (
     DescribedVoice,
     DiscoveredModel,
@@ -143,13 +144,16 @@ def test_discovery_language_filter_excludes_unknown_sentinel(tmp_path, monkeypat
     assert len(FakeOnnxVoice.constructor_calls) == before
 
 
-def test_discovery_reports_unknown_capacity_when_catalog_has_no_limit(monkeypatch):
+def test_discovery_uses_package_capacity_when_catalog_has_no_limit(monkeypatch):
     use_fake_catalog(monkeypatch)
     FakeOnnxVoice.item.metadata["runtime"] = {"layout": "supertonic-3-v1", "chunk_size": 512}
 
     model = discover_models()[0]
 
-    assert model.max_input_tokens is None
+    assert type(model.max_input_tokens) is int
+    assert model.max_input_tokens == 512
+    assert model.metadata["capacity_policy_revision"] == CAPACITY_POLICY_REVISION
+    assert discover_models()[0].metadata["capacity_policy_revision"] == CAPACITY_POLICY_REVISION
 
 
 @pytest.mark.parametrize(
