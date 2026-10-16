@@ -1,0 +1,39 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 1
+release_version: v0.1.4
+git_base_ref: v0.1.3
+git_base_sha: 4ad6bfd1bdb8e8c5deadce1a54ae7371c23b3029
+git_head_ref: ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb
+git_head_sha: ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb
+git_range: 4ad6bfd1bdb8e8c5deadce1a54ae7371c23b3029..ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb
+commit_count: 1
+rows:
+  - sha: ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb
+    source_ref: git:ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb
+    short_sha: ebfaf67
+    changed_paths:
+      - .github/workflows/python-publish.yml
+      - README.md
+      - docs/architecture.md
+      - supertonicsynth/config.py
+      - supertonicsynth/discovery.py
+      - supertonicsynth/errors.py
+      - supertonicsynth/runtime.py
+      - tests/test_discovery.py
+      - tests/test_request_api_contract.py
+      - tests/test_runtime_atomic.py
+      - tests/test_types.py
+    stats:
+      files_changed: 11
+      insertions: 114
+      deletions: 73
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "feat: add maximum and unit"

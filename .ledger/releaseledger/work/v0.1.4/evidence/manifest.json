@@ -1,0 +1,35 @@
+{
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "additions": 114,
+      "deletions": 73,
+      "patch_file": "ebfaf67.patch",
+      "patch_sha256": "6cd1a83321f8462413dd97cf408982243136dce140db3f5158d71c06042e4444",
+      "paths": [
+        ".github/workflows/python-publish.yml",
+        "README.md",
+        "docs/architecture.md",
+        "supertonicsynth/config.py",
+        "supertonicsynth/discovery.py",
+        "supertonicsynth/errors.py",
+        "supertonicsynth/runtime.py",
+        "tests/test_discovery.py",
+        "tests/test_request_api_contract.py",
+        "tests/test_runtime_atomic.py",
+        "tests/test_types.py"
+      ],
+      "sha": "ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb",
+      "short_sha": "ebfaf67",
+      "source_ref": "git:ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb"
+    }
+  ],
+  "git_base_ref": "4ad6bfd1bdb8e8c5deadce1a54ae7371c23b3029",
+  "git_base_sha": "4ad6bfd1bdb8e8c5deadce1a54ae7371c23b3029",
+  "git_head_ref": "ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb",
+  "git_head_sha": "ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb",
+  "include_merges": "nontrivial",
+  "object_type": "git_evidence_manifest",
+  "release_version": "v0.1.4",
+  "schema_version": 1
+}

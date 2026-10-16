@@ -1,0 +1,22 @@
+rows:
+  - sha: ebfaf679c994a5b8d0cadb6c03244cdeb39f03cb
+    inspected: true
+    inspected_paths:
+      - .github/workflows/python-publish.yml
+      - README.md
+      - docs/architecture.md
+      - supertonicsynth/config.py
+      - supertonicsynth/discovery.py
+      - supertonicsynth/errors.py
+      - supertonicsynth/runtime.py
+      - tests/test_discovery.py
+      - tests/test_request_api_contract.py
+      - tests/test_runtime_atomic.py
+      - tests/test_types.py
+    observed_behavior: "Supertonic-3 now uses a versioned 512 model-token package limit. Measurement and discovery expose the limit, oversized atomic requests and individual convenience chunks fail before inference, and capacity errors expose structured model-token details."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false

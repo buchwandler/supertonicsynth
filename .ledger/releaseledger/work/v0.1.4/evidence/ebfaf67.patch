@@ -1,0 +1,462 @@
+ .github/workflows/python-publish.yml |  2 +-
+ README.md                            |  6 ++--
+ docs/architecture.md                 |  6 ++--
+ supertonicsynth/config.py            |  2 ++
+ supertonicsynth/discovery.py         | 49 +++++++++++++++++----------
+ supertonicsynth/errors.py            |  8 +++--
+ supertonicsynth/runtime.py           | 39 ++++++++++------------
+ tests/test_discovery.py              |  8 +++--
+ tests/test_request_api_contract.py   |  2 +-
+ tests/test_runtime_atomic.py         | 64 +++++++++++++++++++++++++-----------
+ tests/test_types.py                  |  1 +
+ 11 files changed, 114 insertions(+), 73 deletions(-)
+
+diff --git a/.github/workflows/python-publish.yml b/.github/workflows/python-publish.yml
+index 49b6856..3ed57dd 100644
+--- a/.github/workflows/python-publish.yml
++++ b/.github/workflows/python-publish.yml
+@@ -165,7 +165,7 @@ jobs:
+               voices=(voice,),
+               default_voice="F1",
+               source_revision=None,
+-              max_input_tokens=None,
++              max_input_tokens=512,
+           )
+           assert runtime_identity(model)["request_api_version"] == "1"
+           assert "onnxvoice" not in sys.modules
+diff --git a/README.md b/README.md
+index ccd42d3..f6cf293 100644
+--- a/README.md
++++ b/README.md
+@@ -60,11 +60,11 @@ with SupertonicRuntime.from_pretrained("supertonic-3") as tts:
+ print(measurement.amount, measurement.maximum, measurement.fits)
+ ```
+
+-`RequestMeasure` reports encoded token count and only reports a maximum when model metadata declares `max_input_tokens`. If no maximum is declared, `maximum` and `fits` are `None`; callers must not infer a capacity limit.
++`RequestMeasure` reports the exact model-input token count emitted by Supertonic-3's frontend, including language control tokens. The package applies a versioned operational limit of 512 model tokens (`capacity_policy_revision = "supertonic-3-input-512-v1"`), so `maximum` is always 512 and `fits` is a boolean. This is a package policy, not a fixed sequence limit declared by the dynamic ONNX graph.
+
+ `REQUEST_API_VERSION` is `1`. `request_api_contract()` returns a frozen, dependency-light `RequestApiContract` describing the request/result/runtime types, method names, and capabilities; inspecting it does not import OnnxVoice or open model assets. Text boundaries belong to the caller. Named voices, request measurement, and voice-level controls are supported; reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings are not.
+
+-`measure_request()` is the public preflight API and shares token accounting with `synthesize()`. If the catalog declares a maximum, an oversized request raises `SynthesisInputTooLongError` before inference; with no declared maximum, `fits` remains `None` rather than guessing.
++`measure_request()` is the public preflight API and shares exact frontend token accounting with synthesis. An atomic request over 512 model tokens raises `SynthesisInputTooLongError` before inference; atomic synthesis does not truncate or split it. The convenience `synthesize_text()` API retains its existing character-based chunking and checks each encoded chunk against the same token limit.
+
+ ### Metadata-only discovery
+
+@@ -76,7 +76,7 @@ for model in discover_models(language="de"):
+     print(runtime_identity(model))
+ ```
+
+-Discovery reads typed OnnxVoice catalog metadata. It does not install model assets or open runtime sessions. Pass `offline=True` to use cached catalog metadata only. Optional catalog fields, including `max_input_tokens`, remain unknown when the catalog does not declare them.
++Discovery reads typed OnnxVoice catalog metadata. It does not install model assets or open runtime sessions. Pass `offline=True` to use cached catalog metadata only. For `supertonic-3`, `max_input_tokens` is the package-defined limit of 512 even when the catalog omits a maximum; `metadata["capacity_policy_revision"]` identifies the effective policy revision.
+
+ ## CLI
+
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 309aa37..69a1f21 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -8,15 +8,15 @@ OnnxVoice owns catalog retrieval, canonical bundle and semantic voice identity,
+
+ ## Public synthesis boundaries
+
+-`SupertonicRuntime.synthesize(request, ...)` accepts one `SynthesisRequest`. Each call performs one frontend encoding and at most one inference, passes the configured seed unchanged, and does not split text, join chunk audio, insert silence, peak-normalize, or apply output gain. `GenerationConfig` contains only generation controls; optional voice-level calibration remains a separate argument. `measure_request` reports the encoded token count and compares it only with a model-declared `max_input_tokens`. When capacity metadata is absent, `maximum` and `fits` remain `None`, and synthesis does not reject input based on an invented limit. `SynthesisInputTooLongError` is raised only when a declared maximum is exceeded.
++`SupertonicRuntime.synthesize(request, ...)` accepts one `SynthesisRequest`. Each call performs one frontend encoding and at most one inference, passes the configured seed unchanged, and does not split text, join chunk audio, insert silence, peak-normalize, or apply output gain. `measure_request` reports the exact frontend model-token count, including language control tokens, and compares it with the versioned 512-token package policy (`supertonic-3-input-512-v1`). This is an operational ceiling, not a static sequence limit from the dynamic ONNX graph. Over-limit requests raise `SynthesisInputTooLongError` before inference with structured amount, maximum, and `model_tokens` unit.
+
+ `SupertonicRuntime.synthesize` is the stable atomic integration surface and accepts only `GenerationConfig` plus the separate optional `VoiceLevelConfig`; it does not accept convenience `SynthesisConfig`. `REQUEST_API_VERSION == 1` and `request_api_contract()` expose this boundary as an immutable, side-effect-free contract. Named voices, request measurement, and voice-level control are supported. Reference voices, linguistic tokens, pronunciation overrides, whole-request phonemes, speakers, and word timings are unsupported; these are not placeholder fields on `SynthesisRequest`.
+
+-`SupertonicRuntime.synthesize_text` and package-level `synthesize` remain convenience composition APIs. They retain existing chunking, per-chunk seed progression, inter-chunk silence, normalization, output gain, and complete-utterance audio processing.
++`SupertonicRuntime.synthesize_text` and package-level `synthesize` remain convenience composition APIs. They retain existing chunking, per-chunk seed progression, inter-chunk silence, normalization, output gain, and complete-utterance audio processing. Each encoded chunk is checked against the same 512-token capacity before inference.
+
+ ## Metadata-only discovery
+
+-`discover_models` maps the OnnxVoice catalog to typed model and voice records. It reads catalog metadata only; it does not install assets or create inference sessions. Catalog lookup may retrieve metadata unless `offline=True` is selected. Optional catalog values remain absent or unknown when not declared. The inspected Supertonic catalog declares no maximum input-token count, so `max_input_tokens` and request fit remain unknown.
++`discover_models` maps the OnnxVoice catalog to typed model and voice records. It reads catalog metadata only; it does not install assets or create inference sessions. Catalog lookup may retrieve metadata unless `offline=True` is selected. For `supertonic-3`, discovery always exposes a positive `max_input_tokens` of 512 and `metadata["capacity_policy_revision"]` identifies the package policy, even when the catalog has no capacity field.
+
+ `runtime_identity(model)` reports the installed engine and runtime versions and the available catalog/model revisions. Missing revision metadata remains `None`; it is not synthesized from aliases or local paths.
+
+diff --git a/supertonicsynth/config.py b/supertonicsynth/config.py
+index 3e9b458..91682ea 100644
+--- a/supertonicsynth/config.py
++++ b/supertonicsynth/config.py
+@@ -36,6 +36,8 @@ SUPPORTED_LANGUAGES = (
+ UNKNOWN_LANGUAGE = "na"
+ AVAILABLE_LANGUAGES = (*SUPPORTED_LANGUAGES, UNKNOWN_LANGUAGE)
+ DEFAULT_MODEL = "supertonic-3"
++MAX_INPUT_TOKENS = 512
++CAPACITY_POLICY_REVISION = "supertonic-3-input-512-v1"
+ DEFAULT_VOICE = "M1"
+ DEFAULT_LANGUAGE = UNKNOWN_LANGUAGE
+ DEFAULT_STEPS = 5
+diff --git a/supertonicsynth/discovery.py b/supertonicsynth/discovery.py
+index 0ee2a20..5f6fa74 100644
+--- a/supertonicsynth/discovery.py
++++ b/supertonicsynth/discovery.py
+@@ -8,7 +8,12 @@ from types import MappingProxyType
+ from typing import Any
+
+ from ._onnxvoice import list_pretrained_bundles
+-from .config import UNKNOWN_LANGUAGE
++from .config import (
++    CAPACITY_POLICY_REVISION,
++    DEFAULT_MODEL,
++    MAX_INPUT_TOKENS,
++    UNKNOWN_LANGUAGE,
++)
+ from .errors import InvalidLanguageError, RuntimeCapabilityError
+
+
+@@ -49,7 +54,7 @@ class DiscoveredModel:
+     voices: tuple[DescribedVoice, ...]
+     default_voice: str | None
+     source_revision: str | None
+-    max_input_tokens: int | None
++    max_input_tokens: int
+     runtime_available: bool = True
+     metadata: Mapping[str, Any] = field(default_factory=dict)
+
+@@ -70,14 +75,12 @@ class DiscoveredModel:
+             or self.sample_rate <= 0
+         ):
+             raise RuntimeCapabilityError("model sample_rate must be a positive integer or None")
+-        if self.max_input_tokens is not None and (
++        if (
+             isinstance(self.max_input_tokens, bool)
+             or not isinstance(self.max_input_tokens, int)
+             or self.max_input_tokens <= 0
+         ):
+-            raise RuntimeCapabilityError(
+-                "model max_input_tokens must be a positive integer or None"
+-            )
++            raise RuntimeCapabilityError("model max_input_tokens must be a positive integer")
+         if not isinstance(self.aliases, tuple) or any(
+             not isinstance(alias, str) or not alias for alias in self.aliases
+         ):
+@@ -106,16 +109,26 @@ def _metadata_string(metadata: Mapping[str, Any], key: str) -> str | None:
+     return value if isinstance(value, str) and value else None
+
+
+-def _max_input_tokens(metadata: Mapping[str, Any]) -> int | None:
+-    value = metadata.get("max_input_tokens")
+-    runtime = metadata.get("runtime")
+-    if value is None and isinstance(runtime, Mapping):
+-        value = runtime.get("max_input_tokens")
+-    if value is None:
+-        return None
+-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+-        raise RuntimeCapabilityError("catalog max_input_tokens must be a positive integer")
+-    return value
++def _max_input_tokens(model_id: str, metadata: Mapping[str, Any]) -> int:
++    if model_id != DEFAULT_MODEL:
++        raise RuntimeCapabilityError(f"no capacity policy is defined for model {model_id!r}")
++
++    runtime_metadata = metadata.get("runtime")
++    sources = (metadata, runtime_metadata)
++    for source in sources:
++        if not isinstance(source, Mapping) or "max_input_tokens" not in source:
++            continue
++        value = source["max_input_tokens"]
++        if value is None:
++            continue
++        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
++            raise RuntimeCapabilityError("catalog max_input_tokens must be a positive integer")
++        if value != MAX_INPUT_TOKENS:
++            raise RuntimeCapabilityError(
++                f"catalog max_input_tokens {value} conflicts with package capacity policy "
++                f"{MAX_INPUT_TOKENS}"
++            )
++    return MAX_INPUT_TOKENS
+
+
+ def _describe_model(item: Any) -> DiscoveredModel:
+@@ -177,8 +190,8 @@ def _describe_model(item: Any) -> DiscoveredModel:
+             voices=voices,
+             default_voice=item.default_voice,
+             source_revision=source_revision,
+-            max_input_tokens=_max_input_tokens(metadata),
+-            metadata=metadata,
++            max_input_tokens=_max_input_tokens(model_id, metadata),
++            metadata={**metadata, "capacity_policy_revision": CAPACITY_POLICY_REVISION},
+         )
+     except RuntimeCapabilityError:
+         raise
+diff --git a/supertonicsynth/errors.py b/supertonicsynth/errors.py
+index 12dff93..cebe8a6 100644
+--- a/supertonicsynth/errors.py
++++ b/supertonicsynth/errors.py
+@@ -60,17 +60,19 @@ class SynthesisInputTooLongError(InvalidRequestError):
+         *,
+         text_length: int,
+         token_count: int,
+-        max_tokens: int | None,
++        max_tokens: int,
+         model_id: str | None,
+     ) -> None:
+         self.text_length = text_length
++        self.amount = token_count
+         self.token_count = token_count
+         self.max_tokens = max_tokens
++        self.maximum = max_tokens
++        self.unit = "model_tokens"
+         self.model_id = model_id
+-        maximum = "unknown" if max_tokens is None else str(max_tokens)
+         model = "unknown model" if model_id is None else model_id
+         super().__init__(
+-            f"encoded request has {token_count} tokens, exceeding maximum {maximum} for {model}"
++            f"encoded request has {token_count} tokens, exceeding maximum {max_tokens} for {model}"
+         )
+
+
+diff --git a/supertonicsynth/runtime.py b/supertonicsynth/runtime.py
+index 1e27578..cfbe91a 100644
+--- a/supertonicsynth/runtime.py
++++ b/supertonicsynth/runtime.py
+@@ -23,6 +23,7 @@ from .config import (
+     DEFAULT_MAX_CHUNK_LENGTH_KO,
+     DEFAULT_MODEL,
+     DEFAULT_VOICE,
++    MAX_INPUT_TOKENS,
+     MAX_SEED,
+     MAX_TEXT_LENGTH,
+ )
+@@ -33,7 +34,6 @@ from .errors import (
+     InvalidRequestError,
+     InvalidVoiceStyleError,
+     ModelInferenceError,
+-    RuntimeCapabilityError,
+     SynthesisInputTooLongError,
+ )
+ from .frontend import FrontendBatch, SupertonicFrontend
+@@ -158,18 +158,8 @@ class SupertonicRuntime:
+         return tuple(sorted(self.bundle.style_paths))
+
+     @property
+-    def max_input_tokens(self) -> int | None:
+-        value = self.bundle.metadata.get("max_input_tokens")
+-        runtime_metadata = self.bundle.metadata.get("runtime")
+-        if value is None and isinstance(runtime_metadata, Mapping):
+-            value = runtime_metadata.get("max_input_tokens")
+-        if value is None:
+-            return None
+-        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+-            raise RuntimeCapabilityError(
+-                "model max_input_tokens metadata must be a positive integer"
+-            )
+-        return value
++    def max_input_tokens(self) -> int:
++        return MAX_INPUT_TOKENS
+
+     def _ensure_open(self) -> None:
+         if self._closed:
+@@ -181,6 +171,18 @@ class SupertonicRuntime:
+             maximum=self.max_input_tokens,
+         )
+
++    def _validate_capacity(self, batch: FrontendBatch, text: str) -> RequestMeasure:
++        measure = self._measure_batch(batch)
++        if measure.fits is False:
++            assert measure.maximum is not None
++            raise SynthesisInputTooLongError(
++                text_length=len(text),
++                token_count=measure.amount,
++                max_tokens=measure.maximum,
++                model_id=self.bundle.bundle_id or self.bundle.ref,
++            )
++        return measure
++
+     def measure_request(self, request: SynthesisRequest) -> RequestMeasure:
+         self._ensure_open()
+         if not isinstance(request, SynthesisRequest):
+@@ -258,15 +260,7 @@ class SupertonicRuntime:
+             raise InvalidVoiceStyleError("voice must be a managed voice name or VoiceStyle")
+
+         batch = self.frontend.encode(request.text, request.language)
+-        measure = self._measure_batch(batch)
+-        if measure.fits is False:
+-            raise SynthesisInputTooLongError(
+-                text_length=len(request.text),
+-                token_count=measure.amount,
+-                max_tokens=measure.maximum,
+-                model_id=self.bundle.bundle_id or self.bundle.ref,
+-            )
+-
++        measure = self._validate_capacity(batch, request.text)
+         audio = self._infer_batch(batch, style=style, config=generation)
+         backing_ref = canonical_backing_ref(self.bundle)
+         voice_ref = canonical_voice_ref(self.bundle, voice)
+@@ -380,6 +374,7 @@ class SupertonicRuntime:
+         audio_parts: list[np.ndarray] = []
+         for index, chunk in enumerate(chunks):
+             batch = self.frontend.encode(chunk, language)
++            self._validate_capacity(batch, chunk)
+             call_seed = None if effective.seed is None else effective.seed + index
+             audio_parts.append(
+                 self._infer_batch(
+diff --git a/tests/test_discovery.py b/tests/test_discovery.py
+index be0d2ab..06ae5b7 100644
+--- a/tests/test_discovery.py
++++ b/tests/test_discovery.py
+@@ -3,6 +3,7 @@ from types import SimpleNamespace
+ import pytest
+
+ import supertonicsynth._onnxvoice as onnxvoice_boundary
++from supertonicsynth.config import CAPACITY_POLICY_REVISION
+ from supertonicsynth.discovery import (
+     DescribedVoice,
+     DiscoveredModel,
+@@ -143,13 +144,16 @@ def test_discovery_language_filter_excludes_unknown_sentinel(tmp_path, monkeypat
+     assert len(FakeOnnxVoice.constructor_calls) == before
+
+
+-def test_discovery_reports_unknown_capacity_when_catalog_has_no_limit(monkeypatch):
++def test_discovery_uses_package_capacity_when_catalog_has_no_limit(monkeypatch):
+     use_fake_catalog(monkeypatch)
+     FakeOnnxVoice.item.metadata["runtime"] = {"layout": "supertonic-3-v1", "chunk_size": 512}
+
+     model = discover_models()[0]
+
+-    assert model.max_input_tokens is None
++    assert type(model.max_input_tokens) is int
++    assert model.max_input_tokens == 512
++    assert model.metadata["capacity_policy_revision"] == CAPACITY_POLICY_REVISION
++    assert discover_models()[0].metadata["capacity_policy_revision"] == CAPACITY_POLICY_REVISION
+
+
+ @pytest.mark.parametrize(
+diff --git a/tests/test_request_api_contract.py b/tests/test_request_api_contract.py
+index 2265a58..3f651b0 100644
+--- a/tests/test_request_api_contract.py
++++ b/tests/test_request_api_contract.py
+@@ -91,7 +91,7 @@ def test_no_model_request_surface_records_and_runtime_methods():
+         voices=(voice,),
+         default_voice="F1",
+         source_revision=None,
+-        max_input_tokens=None,
++        max_input_tokens=512,
+     )
+
+     assert request.text == "One caller-shaped request."
+diff --git a/tests/test_runtime_atomic.py b/tests/test_runtime_atomic.py
+index 206aaa3..3b42275 100644
+--- a/tests/test_runtime_atomic.py
++++ b/tests/test_runtime_atomic.py
+@@ -34,7 +34,7 @@ class FakeRuntime:
+         self.closed = True
+
+
+-def make_runtime(tmp_path, *, audio=None, sample_rate=1000, max_input_tokens=None):
++def make_runtime(tmp_path, *, audio=None, sample_rate=1000):
+     indexer = tmp_path / "unicode_indexer.json"
+     indexer.write_text("[" + ",".join(str(i) for i in range(128)) + "]")
+     config = tmp_path / "tts.json"
+@@ -45,8 +45,6 @@ def make_runtime(tmp_path, *, audio=None, sample_rate=1000, max_input_tokens=Non
+     )
+     installation = SimpleNamespace(kind="bundle")
+     metadata = {"managed": True}
+-    if max_input_tokens is not None:
+-        metadata["runtime"] = {"max_input_tokens": max_input_tokens}
+     bundle = ResolvedSupertonicBundle(
+         ref="supertonic:supertonic-3",
+         bundle_id="supertonic-3",
+@@ -95,20 +93,20 @@ def test_atomic_synthesis_encodes_once_infers_once_and_never_chunks(tmp_path, mo
+
+
+ def test_measure_request_uses_frontend_without_inference(tmp_path):
+-    runtime, fake = make_runtime(tmp_path, max_input_tokens=100)
++    runtime, fake = make_runtime(tmp_path)
+     request = SynthesisRequest(id="seg", text="Measure me.", language="en")
+
+     measure = runtime.measure_request(request)
+
+     assert measure.amount > 0
+-    assert measure.maximum == 100
++    assert measure.maximum == 512
+     assert measure.unit == "tokens"
+     assert measure.fits is True
+     assert fake.calls == []
+
+
+ def test_measurement_and_synthesis_token_counts_match(tmp_path):
+-    runtime, fake = make_runtime(tmp_path, max_input_tokens=100)
++    runtime, fake = make_runtime(tmp_path)
+     request = SynthesisRequest(id="parity", text="Shared token accounting.", language="en")
+
+     measure = runtime.measure_request(request)
+@@ -119,29 +117,55 @@ def test_measurement_and_synthesis_token_counts_match(tmp_path):
+     assert len(fake.calls) == 1
+
+
+-def test_atomic_synthesis_rejects_request_over_declared_capacity(tmp_path):
+-    runtime, fake = make_runtime(tmp_path, max_input_tokens=2)
+-    request = SynthesisRequest(id="seg", text="Too long.", language="en")
++@pytest.mark.parametrize(("token_count", "fits"), [(511, True), (512, True), (513, False)])
++def test_synthesis_matches_measured_capacity_boundary(tmp_path, token_count, fits):
++    runtime, fake = make_runtime(tmp_path)
++    request = SynthesisRequest(
++        id=f"boundary-{token_count}", text="a" * (token_count - 10), language="en"
++    )
+
+     measure = runtime.measure_request(request)
+-    assert measure.fits is False
++    assert measure.amount == token_count
++    assert measure.maximum == 512
++    assert measure.fits is fits
++
++    if fits:
++        result = runtime.synthesize(request, voice="F1")
++        assert result.metadata["token_count"] == token_count
++        assert len(fake.calls) == 1
++        assert len(fake.calls[0][0]) == token_count
++    else:
++        with pytest.raises(SynthesisInputTooLongError) as exc_info:
++            runtime.synthesize(request, voice="F1")
++
++        error = exc_info.value
++        assert error.text_length == len(request.text)
++        assert error.amount == error.token_count == token_count
++        assert error.max_tokens == error.maximum == measure.maximum == 512
++        assert error.unit == "model_tokens"
++        assert error.model_id == "supertonic-3"
++        assert fake.calls == []
++
++
++def test_synthesize_text_rejects_over_capacity_chunk(tmp_path):
++    runtime, fake = make_runtime(tmp_path)
++
+     with pytest.raises(SynthesisInputTooLongError) as exc_info:
+-        runtime.synthesize(request, voice="F1")
++        runtime.synthesize_text("a" * 503, voice="F1", language="en", max_chunk_length=600)
+
+-    error = exc_info.value
+-    assert error.text_length == len(request.text)
+-    assert error.token_count == measure.amount
+-    assert error.max_tokens == measure.maximum == 2
+-    assert error.model_id == "supertonic-3"
++    assert exc_info.value.amount == 513
++    assert exc_info.value.maximum == 512
+     assert fake.calls == []
+
+
+-def test_unknown_capacity_does_not_invent_a_fit_or_split(tmp_path):
++def test_package_capacity_is_authoritative_without_catalog_metadata(tmp_path):
+     runtime, fake = make_runtime(tmp_path)
+-    request = SynthesisRequest(id="seg", text="No declared model limit.", language="en")
++    request = SynthesisRequest(id="seg", text="Within the package limit.", language="en")
+
+-    assert runtime.max_input_tokens is None
+-    assert runtime.measure_request(request).fits is None
++    assert runtime.max_input_tokens == 512
++    measure = runtime.measure_request(request)
++    assert measure.maximum == 512
++    assert measure.fits is True
+     result = runtime.synthesize(request, voice="F1")
+     assert result.id == "seg"
+     assert len(fake.calls) == 1
+diff --git a/tests/test_types.py b/tests/test_types.py
+index 775b544..7872138 100644
+--- a/tests/test_types.py
++++ b/tests/test_types.py
+@@ -212,3 +212,4 @@ def test_input_too_long_error_exposes_structured_capacity():
+         10,
+         "supertonic-3",
+     )
++    assert (error.amount, error.maximum, error.unit) == (12, 10, "model_tokens")
